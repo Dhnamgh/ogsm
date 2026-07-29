@@ -1,16 +1,95 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-from streamlit_option_menu import option_menu
+import sqlite3
+
+# ==========================
+# CONFIG
+# ==========================
 
 st.set_page_config(
     page_title="OGSM Portal UMP",
     layout="wide"
 )
 
-# =========================
+DB_NAME = "ogsm.db"
+
+UNITS = [
+    "P.HCTH",
+    "P.QTGT",
+    "TT.KCCLXN",
+    "TT.KHCN UMP",
+    "TT.GDYH",
+    "TT.CNTT",
+    "KTX",
+    "K.KHCB",
+    "TRƯỜNG Y",
+    "TCYH",
+    "P.TCCB",
+    "P.CTSV",
+    "P.KHCN",
+    "P.HTQT",
+    "PKCK RHM",
+    "T.DƯỢC",
+    "P.KHTC",
+    "K.YTCC",
+    "P.TTPC",
+    "THƯ VIỆN",
+    "P.ĐTSĐH",
+    "BV ĐHYD",
+    "TT.YSHPT",
+    "P.ĐTĐH",
+    "T.ĐD-KTYH",
+    "K.RHM",
+    "P.ĐBCL",
+    "TT.ĐTNLYT"
+]
+
+# ==========================
+# DATABASE
+# ==========================
+
+def get_conn():
+    return sqlite3.connect(DB_NAME)
+
+def init_db():
+
+    conn = get_conn()
+
+    conn.execute("""
+    CREATE TABLE IF NOT EXISTS kpis(
+
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+        unit_name TEXT,
+
+        objective TEXT,
+
+        objective_name TEXT,
+
+        goal_ump TEXT,
+
+        goal_unit TEXT,
+
+        kpi TEXT,
+
+        target_year INTEGER,
+
+        percent REAL,
+
+        status TEXT
+
+    )
+    """)
+
+    conn.commit()
+    conn.close()
+
+init_db()
+
+# ==========================
 # CSS
-# =========================
+# ==========================
 
 st.markdown("""
 <style>
@@ -20,7 +99,7 @@ st.markdown("""
 }
 
 .portal-header{
-    background:#005B96;
+    background:#005b96;
     color:white;
     padding:20px;
     border-radius:12px;
@@ -31,208 +110,227 @@ st.markdown("""
     margin:0;
 }
 
-.metric-card{
-    background:white;
-    border-radius:12px;
-    padding:16px;
-    border:1px solid #E2E8F0;
-}
-
 </style>
 """, unsafe_allow_html=True)
 
-# =========================
+# ==========================
 # HEADER
-# =========================
+# ==========================
 
 st.markdown("""
 <div class="portal-header">
-    <h1>OGSM PORTAL UMP</h1>
-    <div>Kế hoạch chiến lược 2025-2030</div>
+<h1>OGSM PORTAL UMP</h1>
+<div>Kế hoạch chiến lược 2025-2030</div>
 </div>
 """, unsafe_allow_html=True)
 
-# =========================
+# ==========================
 # MENU
-# =========================
+# ==========================
 
-selected = option_menu(
-    menu_title=None,
-    options=[
+selected = st.radio(
+    "",
+    [
         "Dashboard",
         "Upload dữ liệu",
         "Đơn vị",
         "KPI"
     ],
-    orientation="horizontal"
+    horizontal=True
 )
 
-# =========================
-# SESSION
-# =========================
+# ==========================
+# DASHBOARD
+# ==========================
 
-if "master_df" not in st.session_state:
-    st.session_state.master_df = None
+if selected == "Dashboard":
 
-# =========================
-# UPLOAD
-# =========================
+    conn = get_conn()
 
-if selected == "Upload dữ liệu":
-
-    st.subheader("Upload dữ liệu OGSM")
-
-    uploaded_files = st.file_uploader(
-        "Chọn nhiều file OGSM",
-        type=["xlsx"],
-        accept_multiple_files=True
+    df = pd.read_sql(
+        "SELECT * FROM kpis",
+        conn
     )
 
-    if uploaded_files:
+    conn.close()
 
-        all_data = []
-
-        for file in uploaded_files:
-
-            try:
-
-                df = pd.read_excel(
-                    file,
-                    sheet_name="Data",
-                    engine="openpyxl"
-                )
-
-                df = df.dropna(
-                    subset=["Measure (KPI)"]
-                )
-
-                unit_name = (
-                    file.name
-                    .replace(".xlsx", "")
-                )
-
-                df["Đơn vị"] = unit_name
-
-                all_data.append(df)
-
-            except Exception as e:
-
-                st.error(
-                    f"Lỗi file {file.name}: {e}"
-                )
-
-        if all_data:
-
-            master_df = pd.concat(
-                all_data,
-                ignore_index=True
-            )
-
-            st.session_state.master_df = master_df
-
-            st.success(
-                f"Đã nạp {len(master_df)} KPI từ {len(uploaded_files)} đơn vị"
-            )
-
-# =========================
-# DASHBOARD
-# =========================
-
-elif selected == "Dashboard":
-
-    if st.session_state.master_df is None:
+    if len(df) == 0:
 
         st.info(
             "Vào Upload dữ liệu để nạp file OGSM."
         )
+        st.stop()
 
-    else:
+    total_kpi = len(df)
 
-        df = st.session_state.master_df
+    completed = len(
+        df[df["status"] == "Hoàn thành"]
+    )
 
-        total_kpi = len(df)
+    in_progress = len(
+        df[df["status"] == "Đang thực hiện"]
+    )
 
-        completed = len(
-            df[df["Trạng thái"]=="Hoàn thành"]
+    failed = len(
+        df[df["status"] == "Không đạt"]
+    )
+
+    not_due = len(
+        df[df["status"] == "Chưa đến hạn"]
+    )
+
+    c1,c2,c3,c4,c5 = st.columns(5)
+
+    c1.metric("Tổng KPI", total_kpi)
+    c2.metric("Hoàn thành", completed)
+    c3.metric("Đang thực hiện", in_progress)
+    c4.metric("Không đạt", failed)
+    c5.metric("Chưa đến hạn", not_due)
+
+    st.divider()
+
+    left,right = st.columns(2)
+
+    with left:
+
+        objective_df = (
+            df.groupby("objective")
+            ["percent"]
+            .mean()
+            .reset_index()
         )
 
-        in_progress = len(
-            df[df["Trạng thái"]=="Đang thực hiện"]
+        fig1 = px.bar(
+            objective_df,
+            x="objective",
+            y="percent",
+            title="Tỷ lệ hoàn thành theo Objective"
         )
 
-        failed = len(
-            df[df["Trạng thái"]=="Không đạt"]
+        st.plotly_chart(
+            fig1,
+            use_container_width=True
         )
 
-        not_due = len(
-            df[df["Trạng thái"]=="Chưa đến hạn"]
+    with right:
+
+        status_df = (
+            df["status"]
+            .value_counts()
+            .reset_index()
         )
 
-        c1,c2,c3,c4,c5 = st.columns(5)
+        status_df.columns = [
+            "Trạng thái",
+            "Số lượng"
+        ]
 
-        c1.metric("Tổng KPI", total_kpi)
-        c2.metric("Hoàn thành", completed)
-        c3.metric("Đang thực hiện", in_progress)
-        c4.metric("Không đạt", failed)
-        c5.metric("Chưa đến hạn", not_due)
+        fig2 = px.pie(
+            status_df,
+            values="Số lượng",
+            names="Trạng thái",
+            title="Phân bố trạng thái KPI"
+        )
 
-        st.divider()
+        st.plotly_chart(
+            fig2,
+            use_container_width=True
+        )
 
-        left,right = st.columns(2)
+# ==========================
+# UPLOAD
+# ==========================
 
-        with left:
+elif selected == "Upload dữ liệu":
 
-            objective_df = (
-                df.groupby("No")
-                ["Tỷ lệ đạt (%)"]
-                .mean()
-                .reset_index()
+    st.subheader("Upload dữ liệu OGSM")
+
+    unit = st.selectbox(
+        "Đơn vị",
+        UNITS
+    )
+
+    uploaded_file = st.file_uploader(
+        "Chọn file OGSM",
+        type=["xlsx"]
+    )
+
+    if uploaded_file:
+
+        df = pd.read_excel(
+            uploaded_file,
+            sheet_name="Data",
+            engine="openpyxl"
+        )
+
+        df = df.dropna(
+            subset=["Measure (KPI)"]
+        )
+
+        conn = get_conn()
+
+        conn.execute(
+            "DELETE FROM kpis WHERE unit_name=?",
+            (unit,)
+        )
+
+        for _, row in df.iterrows():
+
+            conn.execute(
+                """
+                INSERT INTO kpis
+                (
+                    unit_name,
+                    objective,
+                    objective_name,
+                    goal_ump,
+                    goal_unit,
+                    kpi,
+                    target_year,
+                    percent,
+                    status
+                )
+                VALUES
+                (
+                    ?,?,?,?,?,?,?,?,?
+                )
+                """,
+                (
+                    unit,
+                    row["No"],
+                    row["Objects"],
+                    row["Goals UMP"],
+                    row["Goals HCTH"],
+                    row["Measure (KPI)"],
+                    row["Năm đích"],
+                    row["Tỷ lệ đạt (%)"],
+                    row["Trạng thái"]
+                )
             )
 
-            fig1 = px.bar(
-                objective_df,
-                x="No",
-                y="Tỷ lệ đạt (%)",
-                title="Tỷ lệ hoàn thành theo Objective"
-            )
+        conn.commit()
+        conn.close()
 
-            st.plotly_chart(
-                fig1,
-                use_container_width=True
-            )
+        st.success(
+            f"Đã cập nhật {len(df)} KPI cho {unit}"
+        )
 
-        with right:
-
-            status_df = (
-                df["Trạng thái"]
-                .value_counts()
-                .reset_index()
-            )
-
-            status_df.columns = [
-                "Trạng thái",
-                "Số lượng"
-            ]
-
-            fig2 = px.pie(
-                status_df,
-                values="Số lượng",
-                names="Trạng thái",
-                title="Phân bố trạng thái KPI"
-            )
-
-            st.plotly_chart(
-                fig2,
-                use_container_width=True
-            )
-
-# =========================
+# ==========================
 # ĐƠN VỊ
-# =========================
+# ==========================
 
 elif selected == "Đơn vị":
 
-    if st.session_state.master_df is None:
+    conn = get_conn()
+
+    df = pd.read_sql(
+        "SELECT * FROM kpis",
+        conn
+    )
+
+    conn.close()
+
+    if len(df) == 0:
 
         st.info(
             "Chưa có dữ liệu."
@@ -240,77 +338,38 @@ elif selected == "Đơn vị":
 
     else:
 
-        df = st.session_state.master_df
-
-        units = sorted(
-            df["Đơn vị"]
-            .unique()
-        )
-
         unit = st.selectbox(
             "Chọn đơn vị",
-            units
+            sorted(
+                df["unit_name"].unique()
+            )
         )
 
         unit_df = df[
-            df["Đơn vị"] == unit
+            df["unit_name"] == unit
         ]
-
-        c1,c2,c3,c4,c5 = st.columns(5)
-
-        c1.metric(
-            "Tổng KPI",
-            len(unit_df)
-        )
-
-        c2.metric(
-            "Hoàn thành",
-            len(
-                unit_df[
-                    unit_df["Trạng thái"]=="Hoàn thành"
-                ]
-            )
-        )
-
-        c3.metric(
-            "Đang thực hiện",
-            len(
-                unit_df[
-                    unit_df["Trạng thái"]=="Đang thực hiện"
-                ]
-            )
-        )
-
-        c4.metric(
-            "Không đạt",
-            len(
-                unit_df[
-                    unit_df["Trạng thái"]=="Không đạt"
-                ]
-            )
-        )
-
-        c5.metric(
-            "Chưa đến hạn",
-            len(
-                unit_df[
-                    unit_df["Trạng thái"]=="Chưa đến hạn"
-                ]
-            )
-        )
 
         st.dataframe(
             unit_df,
             use_container_width=True
         )
 
-# =========================
+# ==========================
 # KPI
-# =========================
+# ==========================
 
 elif selected == "KPI":
 
-    if st.session_state.master_df is None:
+    conn = get_conn()
+
+    df = pd.read_sql(
+        "SELECT * FROM kpis",
+        conn
+    )
+
+    conn.close()
+
+    if len(df) == 0:
 
         st.info(
             "Chưa có dữ liệu."
@@ -318,23 +377,21 @@ elif selected == "KPI":
 
     else:
 
-        df = st.session_state.master_df
-
         objective_filter = st.multiselect(
             "Objective",
             sorted(
-                df["No"].unique()
+                df["objective"].unique()
             )
         )
 
         status_filter = st.multiselect(
             "Trạng thái",
             sorted(
-                df["Trạng thái"].unique()
+                df["status"].unique()
             )
         )
 
-        search_text = st.text_input(
+        search = st.text_input(
             "Tìm KPI"
         )
 
@@ -343,25 +400,23 @@ elif selected == "KPI":
         if objective_filter:
 
             view = view[
-                view["No"].isin(
-                    objective_filter
-                )
+                view["objective"]
+                .isin(objective_filter)
             ]
 
         if status_filter:
 
             view = view[
-                view["Trạng thái"].isin(
-                    status_filter
-                )
+                view["status"]
+                .isin(status_filter)
             ]
 
-        if search_text:
+        if search:
 
             view = view[
-                view["Measure (KPI)"]
+                view["kpi"]
                 .str.contains(
-                    search_text,
+                    search,
                     case=False,
                     na=False
                 )
