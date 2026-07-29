@@ -1,5 +1,5 @@
 streamlit
 pandas
 plotly
-sqlalchemy
 openpyxl
+streamlit-option-menu
