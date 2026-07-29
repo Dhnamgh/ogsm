@@ -1,112 +1,59 @@
 import streamlit as st
 import pandas as pd
-import sqlite3
 import plotly.express as px
-from datetime import datetime
-
-DB_NAME = "ogsm.db"
-
-UNITS = [
-    "P.HCTH",
-    "P.QTGT",
-    "TT.KCCLXN",
-    "TT.KHCN UMP",
-    "TT.GDYH",
-    "TT.CNTT",
-    "KTX",
-    "K.KHCB",
-    "TRƯỜNG Y",
-    "TCYH",
-    "P.TCCB",
-    "P.CTSV",
-    "P.KHCN",
-    "P.HTQT",
-    "PKCK RHM",
-    "T.DƯỢC",
-    "P.KHTC",
-    "K.YTCC",
-    "P.TTPC",
-    "THƯ VIỆN",
-    "P.ĐTSĐH",
-    "BV ĐHYD",
-    "TT.YSHPT",
-    "P.ĐTĐH",
-    "T.ĐD-KTYH",
-    "K.RHM",
-    "P.ĐBCL",
-    "TT.ĐTNLYT"
-]
 
 st.set_page_config(
     page_title="OGSM Portal UMP",
     layout="wide"
 )
 
-# =========================
-# DATABASE
-# =========================
+# =====================
+# CSS
+# =====================
 
-def get_conn():
-    return sqlite3.connect(DB_NAME)
+st.markdown("""
+<style>
 
-def init_db():
+.main {
+    background-color: #f5f7fa;
+}
 
-    conn = get_conn()
-    cur = conn.cursor()
+.header {
+    background-color: #005b96;
+    color: white;
+    padding: 15px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+}
 
-    cur.execute("""
-    CREATE TABLE IF NOT EXISTS kpis(
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        unit_name TEXT,
-        objective TEXT,
-        objective_name TEXT,
-        goal_ump TEXT,
-        goal_unit TEXT,
-        kpi TEXT,
-        target_year INTEGER,
-        percent REAL,
-        status TEXT,
-        upload_date TEXT
-    )
-    """)
+.card {
+    background: white;
+    padding: 10px;
+    border-radius: 10px;
+}
 
-    conn.commit()
-    conn.close()
+</style>
+""", unsafe_allow_html=True)
 
-init_db()
+st.markdown("""
+<div class="header">
+    <h2>OGSM PORTAL UMP</h2>
+    <p>Kế hoạch chiến lược 2025-2030</p>
+</div>
+""", unsafe_allow_html=True)
 
-# =========================
-# SIDEBAR
-# =========================
+# =====================
+# UPLOAD
+# =====================
 
-menu = st.sidebar.selectbox(
-    "Chức năng",
-    [
-        "Dashboard toàn trường",
-        "Dashboard đơn vị",
-        "Upload OGSM"
-    ]
+uploaded_file = st.file_uploader(
+    "Tải file OGSM",
+    type=["xlsx"]
 )
 
-# =========================
-# UPLOAD
-# =========================
+if uploaded_file:
 
-if menu == "Upload OGSM":
-
-    st.title("Upload OGSM")
-
-    unit = st.selectbox(
-        "Đơn vị",
-        UNITS
-    )
-
-    uploaded_file = st.file_uploader(
-        "Chọn file OGSM",
-        type=["xlsx"]
-    )
-
-    if uploaded_file:
+    try:
 
         df = pd.read_excel(
             uploaded_file,
@@ -118,97 +65,31 @@ if menu == "Upload OGSM":
             subset=["Measure (KPI)"]
         )
 
-        conn = get_conn()
+        # KPI Cards
 
-        conn.execute(
-            "DELETE FROM kpis WHERE unit_name=?",
-            (unit,)
-        )
-
-        for _, row in df.iterrows():
-
-            conn.execute(
-                """
-                INSERT INTO kpis
-                (
-                    unit_name,
-                    objective,
-                    objective_name,
-                    goal_ump,
-                    goal_unit,
-                    kpi,
-                    target_year,
-                    percent,
-                    status,
-                    upload_date
-                )
-                VALUES (?,?,?,?,?,?,?,?,?,?)
-                """,
-                (
-                    unit,
-                    row["No"],
-                    row["Objects"],
-                    row["Goals UMP"],
-                    row["Goals HCTH"],
-                    row["Measure (KPI)"],
-                    row["Năm đích"],
-                    row["Tỷ lệ đạt (%)"],
-                    row["Trạng thái"],
-                    datetime.now().strftime("%Y-%m-%d %H:%M")
-                )
-            )
-
-        conn.commit()
-        conn.close()
-
-        st.success(
-            f"Đã tải {len(df)} KPI của {unit}"
-        )
-
-# =========================
-# DASHBOARD TOÀN TRƯỜNG
-# =========================
-
-elif menu == "Dashboard toàn trường":
-
-    st.title("Dashboard toàn trường")
-
-    conn = get_conn()
-
-    df = pd.read_sql(
-        "SELECT * FROM kpis",
-        conn
-    )
-
-    conn.close()
-
-    if len(df) == 0:
-
-        st.warning("Chưa có dữ liệu")
-
-    else:
+        total_kpi = len(df)
 
         completed = len(
-            df[df["status"] == "Hoàn thành"]
+            df[df["Trạng thái"] == "Hoàn thành"]
         )
 
-        progress = len(
-            df[df["status"] == "Đang thực hiện"]
+        in_progress = len(
+            df[df["Trạng thái"] == "Đang thực hiện"]
         )
 
         failed = len(
-            df[df["status"] == "Không đạt"]
+            df[df["Trạng thái"] == "Không đạt"]
         )
 
         not_due = len(
-            df[df["status"] == "Chưa đến hạn"]
+            df[df["Trạng thái"] == "Chưa đến hạn"]
         )
 
-        c1,c2,c3,c4,c5 = st.columns(5)
+        c1, c2, c3, c4, c5 = st.columns(5)
 
         c1.metric(
             "Tổng KPI",
-            len(df)
+            total_kpi
         )
 
         c2.metric(
@@ -218,7 +99,7 @@ elif menu == "Dashboard toàn trường":
 
         c3.metric(
             "Đang thực hiện",
-            progress
+            in_progress
         )
 
         c4.metric(
@@ -231,42 +112,54 @@ elif menu == "Dashboard toàn trường":
             not_due
         )
 
-        st.subheader(
-            "KPI theo đơn vị"
-        )
+        st.divider()
 
-        unit_df = (
-            df.groupby("unit_name")
-            .size()
-            .reset_index(name="KPI")
-        )
-
-        fig = px.bar(
-            unit_df,
-            x="unit_name",
-            y="KPI"
-        )
-
-        st.plotly_chart(
-            fig,
-            use_container_width=True
-        )
+        # Biểu đồ Objective
 
         st.subheader(
             "Tỷ lệ hoàn thành theo Objective"
         )
 
         objective_df = (
-            df.groupby("objective")
-            ["percent"]
+            df.groupby("No")
+            ["Tỷ lệ đạt (%)"]
             .mean()
             .reset_index()
         )
 
-        fig2 = px.bar(
+        fig1 = px.bar(
             objective_df,
-            x="objective",
-            y="percent"
+            x="No",
+            y="Tỷ lệ đạt (%)",
+            color="No"
+        )
+
+        st.plotly_chart(
+            fig1,
+            use_container_width=True
+        )
+
+        # Biểu đồ Trạng thái
+
+        st.subheader(
+            "Phân bố trạng thái KPI"
+        )
+
+        status_df = (
+            df["Trạng thái"]
+            .value_counts()
+            .reset_index()
+        )
+
+        status_df.columns = [
+            "Trạng thái",
+            "Số lượng"
+        ]
+
+        fig2 = px.pie(
+            status_df,
+            values="Số lượng",
+            names="Trạng thái"
         )
 
         st.plotly_chart(
@@ -274,69 +167,41 @@ elif menu == "Dashboard toàn trường":
             use_container_width=True
         )
 
-# =========================
-# DASHBOARD ĐƠN VỊ
-# =========================
+        # Bộ lọc
 
-elif menu == "Dashboard đơn vị":
-
-    st.title("Dashboard đơn vị")
-
-    unit = st.selectbox(
-        "Chọn đơn vị",
-        UNITS
-    )
-
-    conn = get_conn()
-
-    df = pd.read_sql(
-        """
-        SELECT *
-        FROM kpis
-        WHERE unit_name=?
-        """,
-        conn,
-        params=(unit,)
-    )
-
-    conn.close()
-
-    if len(df) == 0:
-
-        st.warning(
-            "Đơn vị chưa upload dữ liệu"
+        st.subheader(
+            "Chi tiết KPI"
         )
 
-    else:
-
-        c1,c2,c3,c4,c5 = st.columns(5)
-
-        c1.metric(
-            "Tổng KPI",
-            len(df)
+        objective_filter = st.multiselect(
+            "Objective",
+            sorted(df["No"].unique())
         )
 
-        c2.metric(
-            "Hoàn thành",
-            len(df[df["status"]=="Hoàn thành"])
-        )
+        if objective_filter:
 
-        c3.metric(
-            "Đang thực hiện",
-            len(df[df["status"]=="Đang thực hiện"])
-        )
+            df_view = df[
+                df["No"].isin(
+                    objective_filter
+                )
+            ]
 
-        c4.metric(
-            "Không đạt",
-            len(df[df["status"]=="Không đạt"])
-        )
+        else:
 
-        c5.metric(
-            "Chưa đến hạn",
-            len(df[df["status"]=="Chưa đến hạn"])
-        )
+            df_view = df
 
         st.dataframe(
-            df,
-            use_container_width=True
+            df_view,
+            use_container_width=True,
+            height=600
         )
+
+    except Exception as e:
+
+        st.error(str(e))
+
+else:
+
+    st.info(
+        "Hãy tải file OGSM Excel để bắt đầu."
+    )
