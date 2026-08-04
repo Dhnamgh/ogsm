@@ -1,11 +1,12 @@
 """
 OGSM Portal Main Application Router.
+Uses st.navigation for explicit sidebar menu routing.
 """
 
-import os
 import sys
 from pathlib import Path
 
+# Nạp đường dẫn thư mục gốc
 ROOT_DIR = Path(__file__).resolve().parent
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
@@ -16,39 +17,58 @@ from logger import get_logger
 
 logger = get_logger()
 
+# 1. Khai báo các trang trong hệ thống
+dashboard_page = st.Page(
+    "1_Dashboard.py",
+    title="Dashboard",
+    icon=":material/dashboard:",
+    default=True
+)
+
+ogsm_tree_page = st.Page(
+    "2_OGSM_Tree.py",
+    title="OGSM Tree",
+    icon=":material/account_tree:"
+)
+
+strategy_tracker_page = st.Page(
+    "3_Strategy_Tracker.py",
+    title="Strategy Tracker",
+    icon=":material/track_changes:"
+)
+
+data_management_page = st.Page(
+    "4_Data_Management.py",
+    title="Data Management",
+    icon=":material/database:"
+)
+
+# 2. Khởi tạo Navigation Router
+pg = st.navigation(
+    {
+        "Quản Trị Chiến Lược": [
+            dashboard_page,
+            ogsm_tree_page,
+            strategy_tracker_page,
+            data_management_page,
+        ]
+    }
+)
+
+# 3. Cấu hình trang & Sidebar Header
 st.set_page_config(
     page_title="OGSM Portal - UMP",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
+st.sidebar.title("OGSM Portal")
+st.sidebar.caption("Đại học Y Dược TP.HCM")
+st.sidebar.markdown("---")
 
-def main():
-    try:
-        config = load_config()
-        logger.info("Khởi tạo hệ thống OGSM Portal thành công...")
-    except Exception as e:
-        st.error(f"Lỗi Cấu Hình Hệ Thống: {e}")
-        st.stop()
-
-    st.sidebar.title("OGSM Portal")
-    st.sidebar.caption("Đại học Y Dược TP.HCM")
-    st.sidebar.markdown("---")
-
-    st.title("Hệ Thống Quản Trị Chiến Lược OGSM")
-    st.markdown(
-        """
-        Hệ thống quản trị chiến lược và theo dõi chỉ số **OGSM (Objectives, Goals, Strategies, Measures)**
-        kết nối thời gian thực với **Microsoft OneDrive for Business**.
-
-        ### Các Chức Năng Chính:
-        * **Dashboard:** Báo cáo chỉ số KPI toàn trường và từng đơn vị.
-        * **OGSM Tree:** Cây cấu trúc mục tiêu chiến lược.
-        * **Strategy Tracker:** Cập nhật kết quả chỉ số cho từng đơn vị.
-        * **Data Management:** Bảng dữ liệu thô tổng hợp và xuất file Excel.
-        """
-    )
-
-
-if __name__ == "__main__":
-    main()
+# 4. Thực thi trang được chọn
+try:
+    load_config()
+    pg.run()
+except Exception as e:
+    st.error(f"Lỗi khởi chạy hệ thống: {e}")
