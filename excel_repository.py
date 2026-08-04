@@ -1,11 +1,10 @@
 """
 OpenPyXL and Pandas Excel Repository handling OGSM Matrix Structure.
-Correctly maps UMP Standard Objectives (O1-O5) and 15 Goals/Strategies.
+Intelligently maps UMP Standard Objectives (O1-O5) and exactly 15 Goals (1.1-5.3).
 """
 
 import io
 import os
-import re
 import pandas as pd
 from typing import Optional, List
 from graph_client import MicrosoftGraphClient
@@ -28,26 +27,47 @@ class ExcelOneDriveRepository(BaseOGSMRepository):
         self.graph_client = graph_client or MicrosoftGraphClient()
         self.config = load_config()
 
-    def _get_objective_id(self, no_val: str, obj_title: str) -> str:
-        """Ánh xạ đúng 5 Objectives chuẩn của UMP (O1 đến O5)."""
-        no_str = str(no_val).upper().strip()
-        if "O1" in no_str: return "O1"
-        if "O2" in no_str: return "O2"
-        if "O3" in no_str: return "O3"
-        if "O4" in no_str: return "O4"
-        if "O5" in no_str: return "O5"
-
+    def _get_objective_id(self, obj_title: str) -> str:
         obj_lower = str(obj_title).lower()
         if "giáo dục" in obj_lower: return "O1"
         if "nghiên cứu" in obj_lower: return "O2"
         if "phục vụ cộng đồng" in obj_lower: return "O3"
         if "trí tuệ nhân tạo" in obj_lower or "ai" in obj_lower: return "O4"
         if "quản trị đại học" in obj_lower: return "O5"
-        
         return "O1"
 
+    def _get_goal_id_by_text(self, text: str) -> str:
+        """Map nội dung text về chuẩn 15 mã Goal ID của UMP."""
+        t = text.lower()
+        
+        # O1 Goals
+        if "kiểm định" in t or "1.1" in t: return "1.1"
+        if "đối sánh" in t or "1.2" in t: return "1.2"
+        if "chương trình quốc tế" in t or "trao đổi sinh viên" in t or "1.3" in t: return "1.3"
+        
+        # O2 Goals
+        if "nhóm nghiên cứu mạnh" in t or "2.1" in t: return "2.1"
+        if "bài báo quốc tế" in t or "2.2" in t: return "2.2"
+        if "chuyển giao kỹ thuật" in t or "tnhh 1 thành viên" in t or "2.3" in t: return "2.3"
+        
+        # O3 Goals
+        if "kiểu mẫu" in t or "3.1" in t: return "3.1"
+        if "đào tạo liên tục" in t or "3.2" in t: return "3.2"
+        if "một cổng" in t or "3.3" in t: return "3.3"
+        
+        # O4 Goals
+        if "20% số học phần" in t or "4.1" in t: return "4.1"
+        if "50 đề tài" in t or "4.2" in t: return "4.2"
+        if "hành chính và quản trị" in t or "4.3" in t: return "4.3"
+        
+        # O5 Goals
+        if "nguồn lực tài chính" in t or "10%/ năm" in t or "5.1" in t: return "5.1"
+        if "văn hoá ump" in t or "5.2" in t: return "5.2"
+        if "erp" in t or "chuyển đổi số" in t or "5.3" in t: return "5.3"
+        
+        return "OTHER_GOAL"
+
     def _transform_custom_excel(self, df: pd.DataFrame, unit_code: str) -> pd.DataFrame:
-        """Bóc tách dữ liệu chuẩn UMP OGSM."""
         df.columns = [str(c).strip() for c in df.columns]
 
         rows = []
@@ -56,26 +76,22 @@ class ExcelOneDriveRepository(BaseOGSMRepository):
             if not measure_desc or measure_desc == "nan":
                 continue
 
-            no_val = str(row.get("No", "")).strip() if pd.notna(row.get("No")) else ""
             obj_title = str(row.get("Objects", "")).strip() if pd.notna(row.get("Objects")) else "Mục tiêu UMP"
-            
-            obj_id = self._get_objective_id(no_val, obj_title)
+            obj_id = self._get_objective_id(obj_title)
 
-            # Bóc tách Goals UMP & Goals Đơn vị
+            # Lấy Goal UMP & Map về ID chuẩn
             goal_ump = str(row.get("Goals UMP", "")).strip() if pd.notna(row.get("Goals UMP")) else ""
+            goal_desc = goal_ump if goal_ump and goal_ump != "nan" else obj_title
+            
+            strat_code = self._get_goal_id_by_text(goal_desc)
+
+            # Lấy Goal riêng của Đơn vị
             goal_unit = str(row.get(f"Goals {unit_code}", "")).strip() if pd.notna(row.get(f"Goals {unit_code}")) else ""
             if not goal_unit or goal_unit == "nan":
-                # Tìm cột có chứa chữ Goals
                 goal_cols = [c for c in df.columns if "goals" in c.lower() and c.lower() != "goals ump"]
                 if goal_cols and pd.notna(row.get(goal_cols[0])):
                     goal_unit = str(row.get(goal_cols[0])).strip()
 
-            goal_desc = goal_ump if goal_ump and goal_ump != "nan" else obj_title
-
-            # Tìm mã số Goal (1.1, 1.2, ..., 5.3)
-            goal_match = re.search(r"^(\d+\.\d+)", goal_desc)
-            strat_code = goal_match.group(1) if goal_match else f"{obj_id}_{idx+1}"
-            
             strat_id = f"S_{strat_code}"
             strat_desc = goal_unit if goal_unit and goal_unit != "nan" else goal_desc
 
