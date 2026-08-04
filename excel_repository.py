@@ -1,10 +1,11 @@
 """
-OpenPyXL and Pandas Excel Repository handling OGSM Matrix Structure (2025-2029).
-Directly matches UMP/HCTH Excel Template format.
+OpenPyXL and Pandas Excel Repository handling OGSM Matrix Structure.
+Correctly maps UMP Standard Objectives (O1-O5) and Goals (1.1-5.3).
 """
 
 import io
 import os
+import re
 import pandas as pd
 from typing import Optional, List
 from graph_client import MicrosoftGraphClient
@@ -27,46 +28,59 @@ class ExcelOneDriveRepository(BaseOGSMRepository):
         self.graph_client = graph_client or MicrosoftGraphClient()
         self.config = load_config()
 
-    def _transform_custom_excel(self, df: pd.DataFrame, unit_code: str) -> pd.DataFrame:
-        """Biến đổi bảng Excel thực tế (STT, Objects, Goals HCTH, Measure (KPI)...) về chuẩn OGSM."""
+    def _get_objective_id(self, no_val: str, obj_title: str) -> str:
+        """Ánh xạ đúng 5 Objectives chuẩn của UMP (O1 đến O5)."""
+        no_str = str(no_val).upper().strip()
+        if "O1" in no_str: return "O1"
+        if "O2" in no_str: return "O2"
+        if "O3" in no_str: return "O3"
+        if "O4" in no_str: return "O4"
+        if "O5" in no_str: return "O5"
+
+        obj_lower = str(obj_title).lower()
+        if "giáo dục" in obj_lower: return "O1"
+        if "nghiên cứu" in obj_lower: return "O2"
+        if "phục vụ cộng đồng" in obj_lower: return "O3"
+        if "trí tuệ nhân tạo" in obj_lower or "ai" in obj_lower: return "O4"
+        if "quản trị đại học" in obj_lower: return "O5"
         
-        # Chuẩn hóa tên cột bỏ khoảng trắng thừa
+        return "O_OTHER"
+
+    def _transform_custom_excel(self, df: pd.DataFrame, unit_code: str) -> pd.DataFrame:
+        """Bóc tách dữ liệu chuẩn UMP OGSM."""
         df.columns = [str(c).strip() for c in df.columns]
 
         rows = []
         for idx, row in df.iterrows():
-            # Lấy Objective / Object
-            obj_title = str(row.get("Objects", "")).strip() if pd.notna(row.get("Objects")) else "Mục tiêu chung"
-            if obj_title == "nan" or not obj_title:
-                obj_title = "Mục tiêu chung"
-
-            # Lấy Goal HCTH hoặc Goal UMP
-            goal_desc = ""
-            if "Goals HCTH" in row and pd.notna(row["Goals HCTH"]):
-                goal_desc = str(row["Goals HCTH"]).strip()
-            elif "Goals UMP" in row and pd.notna(row["Goals UMP"]):
-                goal_desc = str(row["Goals UMP"]).strip()
-
-            # Lấy Measure (KPI)
             measure_desc = str(row.get("Measure (KPI)", "")).strip() if pd.notna(row.get("Measure (KPI)")) else ""
             if not measure_desc or measure_desc == "nan":
-                continue  # Bỏ qua dòng trống không có KPI
+                continue  # Bỏ qua dòng không có KPI
 
-            # Lấy Mã/STT
-            stt = str(row.get("STT", idx + 1)).strip()
             no_val = str(row.get("No", "")).strip() if pd.notna(row.get("No")) else ""
+            obj_title = str(row.get("Objects", "")).strip() if pd.notna(row.get("Objects")) else "Mục tiêu UMP"
+            
+            # Chuẩn hóa Objective_ID về đúng O1, O2, O3, O4, O5
+            obj_id = self._get_objective_id(no_val, obj_title)
 
-            # Lấy Trạng thái & Tỷ lệ đạt
+            # Bóc tách Goals UMP
+            goal_ump = str(row.get("Goals UMP", "")).strip() if pd.notna(row.get("Goals UMP")) else ""
+            goal_hcth = str(row.get("Goals HCTH", "")).strip() if pd.notna(row.get("Goals HCTH")) else ""
+            goal_desc = goal_ump if goal_ump and goal_ump != "nan" else (goal_hcth if goal_hcth != "nan" else obj_title)
+
+            # Trích xuất mã Goal ID (ví dụ: 1.1, 1.2, 2.1...)
+            goal_match = re.search(r"^(\d+\.\d+)", goal_desc)
+            goal_id = f"G_{goal_match.group(1)}" if goal_match else f"G_{obj_id}_{idx+1}"
+
+            # Bóc tách STT & Trạng thái
+            stt = str(row.get("STT", idx + 1)).strip()
             status = str(row.get("Trạng thái", "In Progress")).strip() if pd.notna(row.get("Trạng thái")) else "In Progress"
             
-            # Tính Target & Actual
             actual_val = row.get("Tỷ lệ đạt (%)", 0.0)
             try:
                 actual_val = float(str(actual_val).replace("%", "").strip())
             except Exception:
                 actual_val = 0.0
 
-            # Lấy Target 2026 hoặc Năm đích
             target_val = 100.0
             if "2026" in row and pd.notna(row["2026"]):
                 try:
@@ -75,13 +89,13 @@ class ExcelOneDriveRepository(BaseOGSMRepository):
                     target_val = 100.0
 
             rows.append({
-                "Objective_ID": f"OBJ-{idx+1}",
+                "Objective_ID": obj_id,
                 "Objective_Title": obj_title,
-                "Goal_ID": f"G-{idx+1}",
-                "Goal_Desc": goal_desc if goal_desc != "nan" else obj_title,
-                "Strategy_ID": f"S-{idx+1}",
-                "Strategy_Desc": f"Chiến lược {unit_code}",
-                "Measure_ID": f"M{stt}" if stt and stt != "nan" else f"M-{idx+1}",
+                "Goal_ID": goal_id,
+                "Goal_Desc": goal_desc,
+                "Strategy_ID": f"S_{unit_code}_{idx+1}",
+                "Strategy_Desc": f"Chiến lược thực thi {unit_code}",
+                "Measure_ID": f"{unit_code}_M{stt}",
                 "Measure_Desc": measure_desc,
                 "Unit": "%",
                 "Target": target_val,
@@ -94,11 +108,8 @@ class ExcelOneDriveRepository(BaseOGSMRepository):
 
     def fetch_master_dataframe(self) -> pd.DataFrame:
         data_folder_id = self.config.onedrive.data_folder_id
-        logger.info(f"Scanning DATA folder ID: {data_folder_id}")
-
         files = self.graph_client.list_files_in_folder_id(data_folder_id)
         if not files:
-            logger.warning(f"No Excel files found in DATA folder ID: {data_folder_id}")
             return pd.DataFrame(columns=self.REQUIRED_COLUMNS + ["Unit_Code", "Source_File"])
 
         aggregated_dfs: List[pd.DataFrame] = []
@@ -110,11 +121,8 @@ class ExcelOneDriveRepository(BaseOGSMRepository):
             try:
                 file_bytes = self.graph_client.download_file_by_folder_id(data_folder_id, file_name)
                 buffer = io.BytesIO(file_bytes)
-                
-                # Đọc thử file Excel (bỏ qua dòng tiêu đề phụ nếu có)
                 df_raw = pd.read_excel(buffer, engine="openpyxl")
 
-                # Tìm đúng dòng tiêu đề chứa 'Objects' hoặc 'Measure (KPI)'
                 header_row = 0
                 for r_idx in range(min(5, len(df_raw))):
                     row_vals = [str(v) for v in df_raw.iloc[r_idx].values]
@@ -132,16 +140,14 @@ class ExcelOneDriveRepository(BaseOGSMRepository):
                     df_transformed["Unit_Code"] = unit_code
                     df_transformed["Source_File"] = file_name
                     aggregated_dfs.append(df_transformed)
-                    logger.info(f"Transformed {file_name} successfully ({len(df_transformed)} KPIs)")
 
             except Exception as e:
-                logger.error(f"Error reading file {file_name}: {e}")
+                logger.error(f"Lỗi đọc file {file_name}: {e}")
 
         if not aggregated_dfs:
             return pd.DataFrame(columns=self.REQUIRED_COLUMNS + ["Unit_Code", "Source_File"])
 
-        master_df = pd.concat(aggregated_dfs, ignore_index=True)
-        return master_df
+        return pd.concat(aggregated_dfs, ignore_index=True)
 
     def save_unit_dataframe(self, unit_file_name: str, df_unit: pd.DataFrame) -> bool:
         data_folder_id = self.config.onedrive.data_folder_id
@@ -152,9 +158,7 @@ class ExcelOneDriveRepository(BaseOGSMRepository):
             clean_df.to_excel(writer, index=False, sheet_name="OGSM")
 
         buffer.seek(0)
-        content = buffer.read()
-
-        self.graph_client.upload_file_by_folder_id(data_folder_id, unit_file_name, content)
+        self.graph_client.upload_file_by_folder_id(data_folder_id, unit_file_name, buffer.read())
         return True
 
     def save_master_dataframe(self, df: pd.DataFrame) -> bool:
