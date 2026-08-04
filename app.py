@@ -2,17 +2,33 @@
 OGSM Portal Main Application Router.
 """
 
+import os
 import sys
 from pathlib import Path
 
-# Thêm thư mục gốc vào sys.path để Python nhận diện các module core, services, repository...
-ROOT_DIR = Path(__file__).resolve().parent
+# 1. Đảm bảo đường dẫn tuyệt đối của dự án luôn được nạp vào sys.path
+FILE_PATH = Path(__file__).resolve()
+ROOT_DIR = FILE_PATH.parent
+
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
+# Đổi working directory về thư mục gốc
+os.chdir(ROOT_DIR)
+
 import streamlit as st
-from core.config import load_config
-from core.logger import get_logger
+
+# 2. Import các module nội bộ
+try:
+    from core.config import load_config
+    from core.logger import get_logger
+except ModuleNotFoundError as e:
+    st.error(
+        f"Lỗi Import Module: {e}\n\n"
+        f"**Đường dẫn gốc hiện tại:** `{ROOT_DIR}`\n\n"
+        f"**Danh sách file/thư mục trong root:** `{os.listdir(ROOT_DIR)}`"
+    )
+    st.stop()
 
 logger = get_logger()
 
@@ -22,19 +38,20 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+
 def main():
     try:
         config = load_config()
-        logger.info("Initializing OGSM Portal...")
+        logger.info("Khởi tạo hệ thống OGSM Portal thành công...")
     except Exception as e:
-        st.error(f"Lỗi Khởi Tạo Cấu Hình Hệ Thống: {e}")
+        st.error(f"Lỗi Cấu Hình Hệ Thống: {e}")
         st.stop()
 
     st.sidebar.title("OGSM Portal")
     st.sidebar.caption("Đại học Y Dược TP.HCM")
     st.sidebar.markdown("---")
 
-    st.title("Chào Mừng Đến Với Hệ Thống OGSM Portal")
+    st.title("Hệ Thống Quản Trị Chiến Lược OGSM")
     st.markdown(
         """
         Hệ thống quản trị chiến lược và theo dõi chỉ số **OGSM (Objectives, Goals, Strategies, Measures)**
