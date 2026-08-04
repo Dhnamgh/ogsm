@@ -1,6 +1,6 @@
 """
 OpenPyXL and Pandas Excel Repository handling OGSM Matrix Structure.
-Correctly maps UMP Standard Objectives (O1-O5) and Goals (1.1-5.3).
+Correctly maps UMP Standard Objectives (O1-O5) and 15 Goals/Strategies.
 """
 
 import io
@@ -44,7 +44,7 @@ class ExcelOneDriveRepository(BaseOGSMRepository):
         if "trí tuệ nhân tạo" in obj_lower or "ai" in obj_lower: return "O4"
         if "quản trị đại học" in obj_lower: return "O5"
         
-        return "O_OTHER"
+        return "O1"
 
     def _transform_custom_excel(self, df: pd.DataFrame, unit_code: str) -> pd.DataFrame:
         """Bóc tách dữ liệu chuẩn UMP OGSM."""
@@ -54,24 +54,31 @@ class ExcelOneDriveRepository(BaseOGSMRepository):
         for idx, row in df.iterrows():
             measure_desc = str(row.get("Measure (KPI)", "")).strip() if pd.notna(row.get("Measure (KPI)")) else ""
             if not measure_desc or measure_desc == "nan":
-                continue  # Bỏ qua dòng không có KPI
+                continue
 
             no_val = str(row.get("No", "")).strip() if pd.notna(row.get("No")) else ""
             obj_title = str(row.get("Objects", "")).strip() if pd.notna(row.get("Objects")) else "Mục tiêu UMP"
             
-            # Chuẩn hóa Objective_ID về đúng O1, O2, O3, O4, O5
             obj_id = self._get_objective_id(no_val, obj_title)
 
-            # Bóc tách Goals UMP
+            # Bóc tách Goals UMP & Goals Đơn vị
             goal_ump = str(row.get("Goals UMP", "")).strip() if pd.notna(row.get("Goals UMP")) else ""
-            goal_hcth = str(row.get("Goals HCTH", "")).strip() if pd.notna(row.get("Goals HCTH")) else ""
-            goal_desc = goal_ump if goal_ump and goal_ump != "nan" else (goal_hcth if goal_hcth != "nan" else obj_title)
+            goal_unit = str(row.get(f"Goals {unit_code}", "")).strip() if pd.notna(row.get(f"Goals {unit_code}")) else ""
+            if not goal_unit or goal_unit == "nan":
+                # Tìm cột có chứa chữ Goals
+                goal_cols = [c for c in df.columns if "goals" in c.lower() and c.lower() != "goals ump"]
+                if goal_cols and pd.notna(row.get(goal_cols[0])):
+                    goal_unit = str(row.get(goal_cols[0])).strip()
 
-            # Trích xuất mã Goal ID (ví dụ: 1.1, 1.2, 2.1...)
+            goal_desc = goal_ump if goal_ump and goal_ump != "nan" else obj_title
+
+            # Tìm mã số Goal (1.1, 1.2, ..., 5.3)
             goal_match = re.search(r"^(\d+\.\d+)", goal_desc)
-            goal_id = f"G_{goal_match.group(1)}" if goal_match else f"G_{obj_id}_{idx+1}"
+            strat_code = goal_match.group(1) if goal_match else f"{obj_id}_{idx+1}"
+            
+            strat_id = f"S_{strat_code}"
+            strat_desc = goal_unit if goal_unit and goal_unit != "nan" else goal_desc
 
-            # Bóc tách STT & Trạng thái
             stt = str(row.get("STT", idx + 1)).strip()
             status = str(row.get("Trạng thái", "In Progress")).strip() if pd.notna(row.get("Trạng thái")) else "In Progress"
             
@@ -91,10 +98,10 @@ class ExcelOneDriveRepository(BaseOGSMRepository):
             rows.append({
                 "Objective_ID": obj_id,
                 "Objective_Title": obj_title,
-                "Goal_ID": goal_id,
+                "Goal_ID": f"G_{strat_code}",
                 "Goal_Desc": goal_desc,
-                "Strategy_ID": f"S_{unit_code}_{idx+1}",
-                "Strategy_Desc": f"Chiến lược thực thi {unit_code}",
+                "Strategy_ID": strat_id,
+                "Strategy_Desc": strat_desc,
                 "Measure_ID": f"{unit_code}_M{stt}",
                 "Measure_Desc": measure_desc,
                 "Unit": "%",
