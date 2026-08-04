@@ -1,5 +1,6 @@
 """
 Analytics engine for KPI calculation.
+Supports Vietnamese status values from OGSM Excel files.
 """
 
 import pandas as pd
@@ -23,13 +24,19 @@ class OGSMAnalyticsService:
         total_strats = df["Strategy_ID"].nunique()
         total_measures = df["Measure_ID"].nunique()
 
-        targets = df["Target"].replace(0, 1.0)
+        # Tính tỷ lệ hoàn thành trung bình
+        targets = df["Target"].replace(0, 100.0)
         df_calc = df.copy()
-        df_calc["Completion"] = (df_calc["Actual"] / targets) * 100.0
-        df_calc["Completion"] = df_calc["Completion"].clip(lower=0.0, upper=100.0)
-
+        
+        # Nếu cột Actual đã là tỷ lệ % sẵn thì lấy trực tiếp Actual
+        df_calc["Completion"] = df_calc["Actual"].clip(lower=0.0, upper=100.0)
         avg_completion = float(df_calc["Completion"].mean())
-        completed_cnt = int((df["Status"].str.lower() == "completed").sum())
+
+        # Đếm số lượng Hoàn thành (hỗ trợ cả tiếng Việt và tiếng Anh)
+        completed_mask = df["Status"].astype(str).str.strip().str.lower().isin(
+            ["hoàn thành", "completed", "đạt"]
+        )
+        completed_cnt = int(completed_mask.sum())
 
         return {
             "total_objectives": total_objs,
