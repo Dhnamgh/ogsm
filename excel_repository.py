@@ -1,15 +1,15 @@
 """
-OpenPyXL and Pandas Excel Repository querying OneDrive via secrets configuration.
+OpenPyXL and Pandas Excel Repository handling Multi-file Unit datasets in OneDrive DATA folder.
 """
 
 import io
 import os
 import pandas as pd
 from typing import Optional, List
-from core.graph_client import MicrosoftGraphClient
-from repository.base_repository import BaseOGSMRepository
-from core.logger import get_logger
-from core.config import load_config
+from graph_client import MicrosoftGraphClient
+from base_repository import BaseOGSMRepository
+from logger import get_logger
+from config import load_config
 
 logger = get_logger()
 
@@ -27,30 +27,25 @@ class ExcelOneDriveRepository(BaseOGSMRepository):
         self.config = load_config()
 
     def fetch_master_dataframe(self) -> pd.DataFrame:
-        """
-        Scans all unit Excel files inside the DATA folder ID loaded from st.secrets.
-        """
-        # Đọc Folder ID của mục DATA trực tiếp từ secret
         data_folder_id = self.config.onedrive.data_folder_id
-        logger.info(f"Đang quét danh sách file trong thư mục DATA (ID: {data_folder_id})...")
+        logger.info(f"Scanning and loading all unit files inside DATA folder ({data_folder_id})")
 
         files = self.graph_client.list_files_in_folder_id(data_folder_id)
         if not files:
-            logger.warning(f"Không tìm thấy file Excel nào trong thư mục DATA ID: {data_folder_id}")
+            logger.warning(f"No Excel files found in DATA folder ID: {data_folder_id}")
             return pd.DataFrame(columns=self.REQUIRED_COLUMNS + ["Unit_Code", "Source_File"])
 
         aggregated_dfs: List[pd.DataFrame] = []
 
         for f in files:
             file_name = f["name"]
-            unit_code = os.path.splitext(file_name)[0]  # Ví dụ: P.HCTH.xlsx -> P.HCTH
+            unit_code = os.path.splitext(file_name)[0]
 
             try:
                 file_bytes = self.graph_client.download_file_by_folder_id(data_folder_id, file_name)
                 buffer = io.BytesIO(file_bytes)
                 df_unit = pd.read_excel(buffer, engine="openpyxl")
 
-                # Kiểm tra và thêm các cột bắt buộc nếu thiếu
                 for col in self.REQUIRED_COLUMNS:
                     if col not in df_unit.columns:
                         df_unit[col] = None
@@ -62,10 +57,10 @@ class ExcelOneDriveRepository(BaseOGSMRepository):
                 df_unit["Actual"] = pd.to_numeric(df_unit["Actual"], errors="coerce").fillna(0.0)
 
                 aggregated_dfs.append(df_unit)
-                logger.info(f"Đã nạp dữ liệu đơn vị: {file_name} ({len(df_unit)} dòng)")
+                logger.info(f"Successfully loaded unit dataset: {file_name} ({len(df_unit)} rows)")
 
             except Exception as e:
-                logger.error(f"Lỗi khi đọc file {file_name}: {e}")
+                logger.error(f"Error reading file {file_name}: {e}")
 
         if not aggregated_dfs:
             return pd.DataFrame(columns=self.REQUIRED_COLUMNS + ["Unit_Code", "Source_File"])
@@ -74,11 +69,8 @@ class ExcelOneDriveRepository(BaseOGSMRepository):
         return master_df
 
     def save_unit_dataframe(self, unit_file_name: str, df_unit: pd.DataFrame) -> bool:
-        """
-        Saves updated unit DataFrame back to its target folder ID in OneDrive.
-        """
         data_folder_id = self.config.onedrive.data_folder_id
-        logger.info(f"Đang ghi file đơn vị {unit_file_name} vào thư mục DATA ID: {data_folder_id}")
+        logger.info(f"Saving updated unit dataset: {unit_file_name} to DATA folder ({data_folder_id})")
 
         clean_df = df_unit.drop(columns=["Unit_Code", "Source_File"], errors="ignore")
 
@@ -93,4 +85,4 @@ class ExcelOneDriveRepository(BaseOGSMRepository):
         return True
 
     def save_master_dataframe(self, df: pd.DataFrame) -> bool:
-        raise NotImplementedError("Sử dụng save_unit_dataframe để lưu file đơn vị cụ thể.")
+        raise NotImplementedError("Use save_unit_dataframe to update specific unit file.")

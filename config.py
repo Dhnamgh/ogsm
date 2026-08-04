@@ -1,6 +1,6 @@
 """
 Configuration management for OGSM Portal.
-Loads secrets securely from Streamlit secrets without any hardcoded values.
+Loads secrets securely from Streamlit secrets.
 """
 
 import streamlit as st
@@ -16,14 +16,12 @@ class AzureSettings(BaseModel):
 class OneDriveSettings(BaseModel):
     drive_id: str = Field(..., description="OneDrive/SharePoint Drive ID")
     
-    # Specific Folder IDs from secrets
     ogsm_folder_id: str = Field(..., description="Root OGSM Folder ID")
     data_folder_id: str = Field(..., description="Data Folder ID")
     template_folder_id: str = Field(..., description="Template Folder ID")
     export_folder_id: str = Field(..., description="Export Folder ID")
     archive_folder_id: str = Field(..., description="Archive Folder ID")
 
-    # Folder Paths from secrets
     data_path: str = Field(..., description="Data Folder Path")
     template_path: str = Field(..., description="Template Folder Path")
     export_path: str = Field(..., description="Export Folder Path")
@@ -38,9 +36,6 @@ class AppConfig(BaseModel):
 
 @st.cache_resource
 def load_config() -> AppConfig:
-    """
-    Loads and validates application settings directly from st.secrets.
-    """
     try:
         secrets = st.secrets
 

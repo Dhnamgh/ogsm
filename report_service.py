@@ -1,5 +1,5 @@
 """
-Report generation engine to create styled Excel summaries.
+Report generation service.
 """
 
 import io
@@ -10,16 +10,12 @@ class ReportService:
 
     @staticmethod
     def generate_excel_report(df: pd.DataFrame) -> bytes:
-        """
-        Generates a formatted downloadable binary Excel report.
-        """
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
-            df.to_excel(writer, sheet_name="Báo_Cáo_OGSM", index=False)
+            df.to_excel(writer, sheet_name="Bao_Cao_OGSM", index=False)
             workbook = writer.book
-            worksheet = writer.sheets["Báo_Cáo_OGSM"]
+            worksheet = writer.sheets["Bao_Cao_OGSM"]
 
-            # Add simple corporate header format
             header_format = workbook.add_format({
                 "bold": True,
                 "text_wrap": True,

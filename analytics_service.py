@@ -1,5 +1,5 @@
 """
-Analytics and KPI aggregation calculations for OGSM performance tracking.
+Analytics engine for KPI calculation.
 """
 
 import pandas as pd
@@ -7,9 +7,6 @@ from typing import Dict, Any
 
 
 class OGSMAnalyticsService:
-    """
-    Computes summary metrics, completion percentages, and status breakdown.
-    """
 
     @staticmethod
     def compute_summary_kpis(df: pd.DataFrame) -> Dict[str, Any]:
@@ -26,8 +23,7 @@ class OGSMAnalyticsService:
         total_strats = df["Strategy_ID"].nunique()
         total_measures = df["Measure_ID"].nunique()
 
-        # Measure level completion rate calculation
-        targets = df["Target"].replace(0, 1.0) # avoid division by zero
+        targets = df["Target"].replace(0, 1.0)
         df_calc = df.copy()
         df_calc["Completion"] = (df_calc["Actual"] / targets) * 100.0
         df_calc["Completion"] = df_calc["Completion"].clip(lower=0.0, upper=100.0)

@@ -6,29 +6,13 @@ import os
 import sys
 from pathlib import Path
 
-# 1. Đảm bảo đường dẫn tuyệt đối của dự án luôn được nạp vào sys.path
-FILE_PATH = Path(__file__).resolve()
-ROOT_DIR = FILE_PATH.parent
-
+ROOT_DIR = Path(__file__).resolve().parent
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
-# Đổi working directory về thư mục gốc
-os.chdir(ROOT_DIR)
-
 import streamlit as st
-
-# 2. Import các module nội bộ
-try:
-    from core.config import load_config
-    from core.logger import get_logger
-except ModuleNotFoundError as e:
-    st.error(
-        f"Lỗi Import Module: {e}\n\n"
-        f"**Đường dẫn gốc hiện tại:** `{ROOT_DIR}`\n\n"
-        f"**Danh sách file/thư mục trong root:** `{os.listdir(ROOT_DIR)}`"
-    )
-    st.stop()
+from config import load_config
+from logger import get_logger
 
 logger = get_logger()
 

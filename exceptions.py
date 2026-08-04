@@ -16,7 +16,7 @@ class GraphAPIError(OGSMBaseException):
 
 
 class DataValidationError(OGSMBaseException):
-    """Raised when input Excel files or rows fail Pydantic validation."""
+    """Raised when input Excel files or rows fail validation."""
     pass
 
 
