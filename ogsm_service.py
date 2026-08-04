@@ -30,7 +30,7 @@ class OGSMService:
 
         mask = df_master["Measure_ID"] == measure_id
         if not mask.any():
-            logger.error(f"Measure ID {measure_id} not found across unit files.")
+            logger.error(f"Measure ID {measure_id} không tồn tại trong các file đơn vị.")
             return False
 
         source_file = df_master.loc[mask, "Source_File"].iloc[0]

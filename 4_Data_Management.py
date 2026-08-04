@@ -1,13 +1,18 @@
 """
-Data Sync, Export, & Health Management Page.
+Data Management Page.
 """
 
-import streamlit as st
-from services.ogsm_service import OGSMService
-from services.report_service import ReportService
-from components.tables import render_ogsm_table
+import sys
+from pathlib import Path
 
-st.set_page_config(page_title="Quản Lý Dữ Liệu | OGSM Portal", layout="wide")
+ROOT_DIR = Path(__file__).resolve().parent
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
+
+import streamlit as st
+from ogsm_service import OGSMService
+from report_service import ReportService
+from tables import render_ogsm_table
 
 st.title("Quản Lý Dữ Liệu & Xuất Báo Cáo")
 
@@ -18,12 +23,11 @@ try:
     tab1, tab2 = st.tabs(["Xem Dữ Liệu Toàn Phần", "Xuất Báo Cáo Excel"])
 
     with tab1:
-        st.subheader("Bảng Dữ Liệu OGSM Master")
+        st.subheader("Bảng Dữ Liệu OGSM Master Toàn Trường")
         render_ogsm_table(df)
 
     with tab2:
-        st.subheader("Tải Báo Cáo Bằng File Excel Stream")
-        st.write("File Excel được tạo trực tiếp với định dạng doanh nghiệp UMP chuẩn.")
+        st.subheader("Tải Báo Cáo Excel Tổng Hợp")
 
         if not df.empty:
             excel_bytes = ReportService.generate_excel_report(df)

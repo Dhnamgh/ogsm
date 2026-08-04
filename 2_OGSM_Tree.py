@@ -2,10 +2,15 @@
 OGSM Dynamic Cascade Tree Page.
 """
 
-import streamlit as st
-from services.ogsm_service import OGSMService
+import sys
+from pathlib import Path
 
-st.set_page_config(page_title="Cấu Trúc OGSM | OGSM Portal", layout="wide")
+ROOT_DIR = Path(__file__).resolve().parent
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
+
+import streamlit as st
+from ogsm_service import OGSMService
 
 st.title("Sơ Đồ Cấu Trúc OGSM (Cascade Hierarchy)")
 
@@ -36,8 +41,7 @@ try:
                         s_desc = df_s["Strategy_Desc"].iloc[0] if "Strategy_Desc" in df_s else ""
                         st.markdown(f"**Strategy [{s}]:** {s_desc}")
 
-                        # Measures Table
-                        m_cols = ["Measure_ID", "Measure_Desc", "Unit", "Target", "Actual", "Owner", "Status"]
+                        m_cols = ["Unit_Code", "Measure_ID", "Measure_Desc", "Unit", "Target", "Actual", "Owner", "Status"]
                         available_m = [c for c in m_cols if c in df_s.columns]
                         st.table(df_s[available_m])
     else:

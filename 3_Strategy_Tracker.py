@@ -1,11 +1,16 @@
 """
-Strategy Tracking & Progress Update Page.
+Strategy Tracker & Update Page.
 """
 
-import streamlit as st
-from services.ogsm_service import OGSMService
+import sys
+from pathlib import Path
 
-st.set_page_config(page_title="Cập Nhật Tiến Độ | OGSM Portal", layout="wide")
+ROOT_DIR = Path(__file__).resolve().parent
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
+
+import streamlit as st
+from ogsm_service import OGSMService
 
 st.title("Cập Nhật Tiến Độ Chỉ Số (Measures)")
 
@@ -22,6 +27,7 @@ try:
         if selected_m:
             row = df[df["Measure_ID"] == selected_m].iloc[0]
 
+            st.write(f"**Đơn Vị Quản Lý:** {row.get('Unit_Code', '')}")
             st.write(f"**Mô Tả:** {row.get('Measure_Desc', '')}")
             st.write(f"**Đơn Vị Phụ Trách:** {row.get('Owner', '')}")
             st.write(f"**Chỉ Tiêu (Target):** {row.get('Target', 0)} ({row.get('Unit', '')})")
@@ -41,13 +47,13 @@ try:
                 submit = st.form_submit_button("Lưu Thay Đổi")
 
                 if submit:
-                    with st.spinner("Đang lưu dữ liệu lên Microsoft OneDrive..."):
+                    with st.spinner("Đang lưu dữ liệu lên OneDrive..."):
                         success = service.update_measure_actual(selected_m, new_actual, new_status)
                         if success:
                             st.success(f"Cập nhật thành công Measure {selected_m}!")
                             st.rerun()
                         else:
-                            st.error("Cập nhật thất bại. Vui lòng kiểm tra nhật ký log.")
+                            st.error("Cập nhật thất bại. Vui lòng kiểm tra log.")
 
 except Exception as e:
     st.error(f"Lỗi khi tải biểu mẫu cập nhật: {e}")
