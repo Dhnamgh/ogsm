@@ -1,6 +1,6 @@
 """
 Plotly Chart Builders for OGSM Portal.
-Sửa triệt để logic lọc năm hiện hành (Regex extraction) để 2 biểu đồ tỷ lệ hoàn thành khác biệt chuẩn xác.
+Chuẩn hóa logic tính tỷ lệ hoàn thành theo năm hiện hành vs Cả giai đoạn 2025-2030.
 """
 
 import plotly.express as px
@@ -11,18 +11,17 @@ import re
 
 
 def extract_year(val) -> int:
-    """Trích xuất con số năm 4 chữ số từ bất kỳ định dạng văn bản nào (ví dụ: '2026', 'Năm 2026' -> 2026)"""
+    """Trích xuất năm 4 chữ số từ chuỗi dữ liệu (Mặc định 2026 nếu không ghi để tính cho năm hiện hành)."""
     if pd.isna(val):
-        return 2030
+        return 2026
     val_str = str(val).strip()
     match = re.search(r'\b(202[4-9]|203[0-0])\b', val_str)
     if match:
         return int(match.group(1))
-    # Tìm bất kỳ 4 chữ số nào nếu không thuộc 2024-2030
     match_any = re.search(r'\b\d{4}\b', val_str)
     if match_any:
         return int(match_any.group(1))
-    return 2030
+    return 2026
 
 
 def create_status_donut_chart(df_status: pd.DataFrame) -> go.Figure:
@@ -114,7 +113,6 @@ def create_stacked_kpi_by_unit_chart(df: pd.DataFrame, current_year_only: bool =
     current_year = datetime.datetime.now().year
 
     if current_year_only:
-        # Sử dụng hàm extract_year để bóc tách chính xác năm
         year_col = "Target_Year" if "Target_Year" in df_calc.columns else "Year"
         if year_col in df_calc.columns:
             df_calc["Extracted_Year"] = df_calc[year_col].apply(extract_year)
@@ -195,7 +193,7 @@ def create_total_kpis_by_unit_chart(df: pd.DataFrame) -> go.Figure:
 
 
 def create_completion_rate_by_unit_chart(df: pd.DataFrame, current_year_only: bool = False) -> go.Figure:
-    """Biểu đồ: Tỷ lệ hoàn thành theo đơn vị (Phân biệt rõ năm hiện hành vs Cả giai đoạn)"""
+    """Biểu đồ: Tỷ lệ hoàn thành theo đơn vị"""
     if df.empty or "Unit_Code" not in df.columns or "Status" not in df.columns:
         fig = go.Figure()
         fig.update_layout(title="Chưa có dữ liệu tỷ lệ hoàn thành")
@@ -204,7 +202,7 @@ def create_completion_rate_by_unit_chart(df: pd.DataFrame, current_year_only: bo
     df_calc = df.copy()
     current_year = datetime.datetime.now().year
 
-    # Lọc năm bằng hàm trích xuất regex
+    # Lọc năm
     if current_year_only:
         year_col = "Target_Year" if "Target_Year" in df_calc.columns else "Year"
         if year_col in df_calc.columns:
@@ -213,10 +211,9 @@ def create_completion_rate_by_unit_chart(df: pd.DataFrame, current_year_only: bo
 
     if df_calc.empty:
         fig = go.Figure()
-        fig.update_layout(title=f"Không có dữ liệu KPI cho các mục tiêu đến năm {current_year}")
+        fig.update_layout(title=f"Không có dữ liệu KPI đến năm {current_year}")
         return fig
 
-    # Tính tỷ lệ % Hoàn thành thực tế
     grouped = df_calc.groupby("Unit_Code")
     rates = []
     for unit, group in grouped:
@@ -239,7 +236,7 @@ def create_completion_rate_by_unit_chart(df: pd.DataFrame, current_year_only: bo
     chart_title = (
         f"Biểu đồ: Tỷ lệ hoàn thành theo đơn vị năm {current_year}"
         if current_year_only
-        else "Biểu đồ: Tỷ lệ hoàn thành theo đơn vị giai đoạn 2025–2030"
+        else "Biểu đồ: Tỷ lệ hoàn thành theo đơn vị giai đoạn 2025–2030 (Tổng thể)"
     )
 
     fig.update_layout(
