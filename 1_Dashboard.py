@@ -1,6 +1,6 @@
 """
 Trang Executive Dashboard - Đại học Y Dược TP.HCM
-Chuẩn hóa linh hoạt mã đơn vị để lọc chính xác 100% các Khối báo cáo.
+Sử dụng bộ ánh xạ CỐ ĐỊNH (Exact Mapping) để phân loại chuẩn xác 100% đơn vị vào đúng khối.
 """
 
 import sys
@@ -11,7 +11,6 @@ if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
 import re
-import unicodedata
 import datetime
 import streamlit as st
 
@@ -20,12 +19,7 @@ st.set_page_config(page_title="Dashboard OGSM - Đại học Y Dược TP.HCM", 
 # CSS giao diện
 st.markdown("""
 <style>
-    /* LOẠI BỎ ICON Ở MENU SIDEBAR KHUNG TRÁI */
-    [data-testid="stSidebarNav"] ul li a svg {
-        display: none !important;
-    }
-    
-    /* MENU SIDEBAR KHUNG TRÁI */
+    [data-testid="stSidebarNav"] ul li a svg { display: none !important; }
     [data-testid="stSidebarNav"] ul li a {
         border-radius: 8px !important;
         padding: 10px 14px !important;
@@ -33,20 +27,16 @@ st.markdown("""
         font-weight: 600 !important;
         transition: all 0.2s ease-in-out !important;
     }
-
     [data-testid="stSidebarNav"] ul li a:hover {
         background-color: #e7f3ff !important;
         color: #1877F2 !important;
         transform: translateX(4px);
     }
-
     [data-testid="stSidebarNav"] ul li a[aria-current="page"] {
         background-color: #1877F2 !important;
         color: #ffffff !important;
         box-shadow: 0 3px 8px rgba(24, 119, 242, 0.35) !important;
     }
-
-    /* BANNER TIÊU ĐỀ ÔM SÁT CHỮ */
     .main-banner-blue {
         display: inline-block;
         background: #1877F2;
@@ -58,7 +48,6 @@ st.markdown("""
         box-shadow: 0 4px 10px rgba(24, 119, 242, 0.3);
         margin-bottom: 20px;
     }
-    
     .section-banner-blue {
         display: inline-block;
         background-color: #1877F2;
@@ -70,7 +59,6 @@ st.markdown("""
         margin: 14px 0px 14px 0px;
         box-shadow: 0 2px 6px rgba(24, 119, 242, 0.25);
     }
-
     .subsection-header-blue {
         background-color: #ffffff;
         color: #1877F2;
@@ -82,15 +70,12 @@ st.markdown("""
         margin: 8px 0px 10px 0px;
         box-shadow: 0 2px 4px rgba(0,0,0,0.03);
     }
-
-    /* NÚT CHỌN KHỐI ĐƠN VỊ */
     div[data-testid="stRadio"] > div {
         background-color: #f0f2f5;
         padding: 6px;
         border-radius: 10px;
         border: 1px solid #e4e6eb;
     }
-    
     div[data-testid="stRadio"] label {
         background-color: #ffffff !important;
         border-radius: 8px !important;
@@ -101,7 +86,6 @@ st.markdown("""
         transition: all 0.2s ease-in-out !important;
         cursor: pointer !important;
     }
-
     div[data-testid="stRadio"] label:hover {
         background-color: #e7f3ff !important;
         color: #1877F2 !important;
@@ -111,23 +95,33 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
-def strip_vietnamese_accents(text: str) -> str:
-    """Loại bỏ dấu tiếng Việt"""
-    if not text:
-        return ""
-    text = unicodedata.normalize('NFD', str(text))
-    text = re.sub(r'[\u0300-\u036f]', '', text)
-    return text.replace('đ', 'd').replace('Đ', 'D')
+def get_unit_group_exact(unit_code: str) -> str:
+    """
+    Phân loại chính xác 100% từng đơn vị vào đúng 1 Khối duy nhất dựa trên tên đơn vị / tên file.
+    """
+    u = str(unit_code).upper().strip()
 
+    # 1. Khối Bệnh viện / Phòng khám
+    if any(k in u for k in ["BV", "BVDHYD", "PKCK RHM", "PKRHM", "PHONG KHAM"]):
+        return "Khối Bệnh viện / Phòng khám"
 
-def normalize_code(code_str: str) -> str:
-    """Chuẩn hóa mã đơn vị bỏ hết dấu, ký tự đặc biệt, viết hoa"""
-    if not code_str:
-        return ""
-    s = strip_vietnamese_accents(str(code_str)).upper().replace(".XLSX", "").strip()
-    s = re.sub(r"^(P\.|T\.|K\.|TT\.|PK\.|BV\.|PHONG|TRUONG|KHOA|TRUNG TAM)", "", s)
-    s = re.sub(r"[^\w]", "", s)
-    return s
+    # 2. Khối Trung tâm
+    if any(k in u for k in ["TT.", "TT ", "TRUNG TAM", "TTCNTT", "TTGDYH", "TTKCCL", "TTYSHPT", "KCCLXN"]):
+        return "Khối Trung tâm"
+
+    # 3. Khối Phòng chức năng
+    if any(k in u for k in ["P.", "PHONG", "HCTH", "QTGT", "TCCB", "CTSV", "KHCN", "HTQT", "KHTC", "TTPC", "DTSDH", "ĐTSĐH", "DTĐH", "ĐTĐH", "DBCL", "ĐBCL"]):
+        return "Khối Phòng chức năng"
+
+    # 4. Khối Đơn vị khác
+    if any(k in u for k in ["KTX", "TCYH", "THU VIEN", "THUVIEN", "TAP CHI"]):
+        return "Khối Đơn vị khác"
+
+    # 5. Khối Trường / Khoa (Căn bản, Dược, RHM, YYTCC, YHCT, Trường Y)
+    if any(k in u for k in ["K.", "KHOA", "T.", "TRUONG", "TRƯỜNG Y", "DUOC", "DƯỢC", "RHM", "YTCC", "YHCT", "KHCB", "DDKTYH", "ĐĐKTYH"]):
+        return "Khối Trường / Khoa"
+
+    return "Đơn vị khác"
 
 
 try:
@@ -144,37 +138,27 @@ try:
 
     st.markdown('<div class="main-banner-blue">Tổng Quan Thực Hiện OGSM - Đại học Y Dược TP.HCM</div>', unsafe_allow_html=True)
 
-    # Từ điển danh sách mã chuẩn hóa linh hoạt
-    UNIT_GROUPS = {
-        "Tất cả đơn vị": [],
-        "Khối Phòng chức năng": [
-            "HCTH", "QTGT", "TCCB", "CTSV", "KHCN", "HTQT", "KHTC", "TTPC", "DTSDH", "DTSDH", "DTDH", "DBCL", "DBCLGD"
-        ],
-        "Khối Trường / Khoa": [
-            "Y", "TRUONGY", "DUOC", "TDUOC", "DDKTYH", "TDKTYH", "KHCB", "KKHCB", "YHCT", "KYHCT", "YTCC", "KYTCC", "RHM", "KRHM"
-        ],
-        "Khối Bệnh viện / Phòng khám": [
-            "BVDHYD", "DHYD", "PKCKRHM", "PKRHM", "RHM"
-        ],
-        "Khối Trung tâm": [
-            "KCCLXN", "KC", "KHCNUMP", "GDYH", "CNTT", "YSHPT", "DTNLYT", "TTCNTT", "TTGDYH"
-        ],
-        "Đơn vị khác": [
-            "KTX", "TCYH", "THUVIEN", "THUVIEN"
-        ]
-    }
-
     service = OGSMService()
     df_all = service.get_full_ogsm_data()
 
     if not df_all.empty:
-        df_all["Norm_Code"] = df_all["Unit_Code"].apply(normalize_code)
+        # Gán Khối chính xác cho từng dòng dựa trên Unit_Code
+        df_all["Unit_Group"] = df_all["Unit_Code"].apply(get_unit_group_exact)
+
+        GROUPS_LIST = [
+            "Tất cả đơn vị",
+            "Khối Phòng chức năng",
+            "Khối Trường / Khoa",
+            "Khối Bệnh viện / Phòng khám",
+            "Khối Trung tâm",
+            "Đơn vị khác"
+        ]
 
         st.markdown('<div class="subsection-header-blue">Chọn Khối Đơn Vị Báo Cáo</div>', unsafe_allow_html=True)
         
         selected_group = st.radio(
             "Chọn Khối:",
-            options=list(UNIT_GROUPS.keys()),
+            options=GROUPS_LIST,
             horizontal=True,
             label_visibility="collapsed",
             key="dash_main_group_radio"
@@ -186,10 +170,8 @@ try:
             selected_unit = "Tất Cả Đơn Vị (Toàn Trường)"
             st.caption("Đại học Y Dược TP. Hồ Chí Minh - Báo Cáo Tổng Hợp Toàn Trường (29 Đơn Vị)")
         else:
-            group_targets = UNIT_GROUPS[selected_group]
-            
-            # Khởi tạo bộ lọc khớp thông minh
-            df_group_available = df_all[df_all["Norm_Code"].apply(lambda c: any(t in c or c in t for t in group_targets))]
+            # Chỉ lọc danh sách đơn vị thực sự thuộc về Khối này
+            df_group_available = df_all[df_all["Unit_Group"] == selected_group]
             available_units_real = sorted(list(df_group_available["Unit_Code"].unique()))
             
             if available_units_real:
@@ -204,16 +186,16 @@ try:
                 else:
                     selected_unit = f"GROUP:{selected_group}"
             else:
+                st.info(f"Chưa có tệp dữ liệu nào thuộc {selected_group}.")
                 selected_unit = f"GROUP:{selected_group}"
 
-        # Lọc dữ liệu theo lựa chọn
+        # Lọc dữ liệu chính xác
         df_filtered = df_all.copy()
         if selected_unit == "Tất Cả Đơn Vị (Toàn Trường)":
             pass
         elif selected_unit.startswith("GROUP:"):
             g_name = selected_unit.replace("GROUP:", "")
-            target_norm_codes = UNIT_GROUPS[g_name]
-            df_filtered = df_all[df_all["Norm_Code"].apply(lambda c: any(t in c or c in t for t in target_norm_codes))]
+            df_filtered = df_all[df_all["Unit_Group"] == g_name]
             st.caption(f"Báo Cáo Tổng Hợp: **{g_name}**")
         else:
             df_filtered = df_all[df_all["Unit_Code"] == selected_unit]
@@ -244,7 +226,6 @@ try:
         st.markdown("---")
 
         # 3. Biểu đồ Tiến độ thực hiện KPI đến hạn năm hiện hành
-        current_yr = datetime.datetime.now().year
         fig_bar_current = create_stacked_kpi_by_unit_chart(df_filtered, current_year_only=True)
         st.plotly_chart(fig_bar_current, use_container_width=True)
 
