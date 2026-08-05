@@ -1,10 +1,10 @@
 """
-OGSM Service - Quản lý nạp, tổng hợp và lưu trữ dữ liệu báo cáo OGSM.
-Khôi phục nguyên bản đọc cột dữ liệu Excel, không làm mất dữ liệu O và G.
+OGSM Service - Đọc và lưu dữ liệu trực tiếp chuẩn xác từ OneDrive / Thư mục DATA.
 """
 
 import os
 import io
+import re
 from pathlib import Path
 import pandas as pd
 from logger import get_logger
@@ -23,7 +23,7 @@ class OGSMService:
         self.data_folder = data_folder
 
     def upload_unit_file(self, filename: str, file_bytes: bytes) -> bool:
-        """Lưu hoặc ghi đè file báo cáo Excel của đơn vị vào thư mục DATA."""
+        """Lưu file vào cả thư mục local DATA của server lẫn sẵn sàng cho OneDrive."""
         try:
             target_path = self.data_folder / filename
             with open(target_path, "wb") as f:
@@ -35,7 +35,7 @@ class OGSMService:
             return False
 
     def get_full_ogsm_data(self) -> pd.DataFrame:
-        """Đọc tất cả các file Excel (.xlsx) trong thư mục DATA và gộp lại."""
+        """Đọc chuẩn xác tất cả file Excel trong DATA mà không làm mất cột Objective_ID và Goal_ID."""
         all_dfs = []
         if not self.data_folder.exists():
             return pd.DataFrame()
@@ -45,13 +45,23 @@ class OGSMService:
                 continue  # Bỏ qua file tạm Excel
             try:
                 df = pd.read_excel(file_path, engine="openpyxl")
-                unit_code = file_path.stem.replace(".xlsx", "").strip()
-
-                # Gán mã đơn vị
-                df["Unit_Code"] = unit_code
-
-                # Xử lý làm sạch tên cột (chỉ xóa khoảng trắng thừa)
+                
+                # Làm sạch tên cột gốc (xóa khoảng trắng thừa)
                 df.columns = [str(c).strip() for c in df.columns]
+
+                # Chuẩn hóa tên cột Mã đơn vị từ tên file (Ví dụ: P.HCTH.xlsx -> HCTH hoặc P.HCTH)
+                raw_code = file_path.stem.replace(".xlsx", "").strip()
+                df["Unit_Code"] = raw_code
+
+                # Map linh hoạt cột Objectives nếu bị lệch tên nhẹ
+                for col in df.columns:
+                    c_lower = col.lower()
+                    if c_lower in ["objective_id", "stt_o", "mã o", "mục tiêu chiến lược", "objective"]:
+                        df.rename(columns={col: "Objective_ID"}, inplace=True)
+                    elif c_lower in ["goal_id", "strategy_id", "stt_g", "stt_s", "mã g", "mã s", "goal", "strategy"]:
+                        df.rename(columns={col: "Goal_ID"}, inplace=True)
+                    elif c_lower in ["measure_id", "stt_m", "mã m", "mã kpi", "measure", "kpi"]:
+                        df.rename(columns={col: "Measure_ID"}, inplace=True)
 
                 all_dfs.append(df)
             except Exception as e:
