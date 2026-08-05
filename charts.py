@@ -39,8 +39,8 @@ def create_status_donut_chart(df_status: pd.DataFrame) -> go.Figure:
 def create_stacked_kpi_by_unit_chart(df: pd.DataFrame, current_year_only: bool = False) -> go.Figure:
     """
     Tạo biểu đồ cột chồng 100% (Stacked Bar Chart 100%) theo Đơn vị.
-    - current_year_only = False: Biểu đồ giai đoạn 2025–2029 (Biểu đồ 3)
-    - current_year_only = True: Biểu đồ tính đến năm hiện hành theo thời gian thực (Biểu đồ 4)
+    - current_year_only = False: Biểu đồ cơ cấu KPI giai đoạn 2025–2029
+    - current_year_only = True: Biểu đồ tiến độ KPI đến hạn năm hiện hành
     """
     if df.empty or "Unit_Code" not in df.columns:
         fig = go.Figure()
@@ -86,10 +86,11 @@ def create_stacked_kpi_by_unit_chart(df: pd.DataFrame, current_year_only: bool =
                 marker_color=color_map.get(status, "#757575")
             ))
 
+    # Đổi tiêu đề bỏ số thứ tự biểu đồ
     chart_title = (
-        f"Biểu đồ 4: Tiến độ thực hiện KPI đến hạn theo đơn vị (đến năm {current_year})"
+        f"Biểu đồ: Tiến độ thực hiện KPI đến hạn theo đơn vị (đến năm {current_year})"
         if current_year_only
-        else "Biểu đồ 3: Cơ cấu thực hiện KPI giai đoạn 2025–2029 theo đơn vị"
+        else "Biểu đồ: Cơ cấu thực hiện KPI giai đoạn 2025–2029 theo đơn vị"
     )
 
     fig.update_layout(
