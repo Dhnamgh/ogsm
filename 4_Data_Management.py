@@ -1,6 +1,5 @@
 """
-Data Management Page.
-Allows units to upload Excel files directly to OneDrive DATA folder and inspect raw data.
+Data Management Page with Dropdown Unit Selection & Dynamic Instructions.
 """
 
 import sys
@@ -21,9 +20,39 @@ logger = get_logger()
 st.set_page_config(page_title="Quản Lý Dữ Liệu - OGSM Portal", layout="wide")
 st.title("📂 Quản Lý & Cập Nhật Dữ Liệu Báo Cáo OGSM")
 
-st.markdown("""
-Trang này dành cho đại diện các **Phòng / Khoa / Trung tâm** tải file báo cáo tiến độ OGSM định kỳ hàng tháng lên hệ thống.
-""")
+# Danh sách chuẩn các Đơn vị thuộc UMP
+UMP_UNITS = [
+    "P.HCTH - Phòng Hành chính Tổng hợp",
+    "P.QTGT - Phòng Quản trị Gia tăng",
+    "P.KHTH - Phòng Kế hoạch Tổng hợp",
+    "P.TCCB - Phòng Tổ chức Cán bộ",
+    "P.CTSV - Phòng Công tác Sinh viên",
+    "P.KHCN - Phòng Khoa học Công nghệ",
+    "P.HTQT - Phòng Hợp tác Quốc tế",
+    "P.KHTC - Phòng Kế hoạch Tài chính",
+    "P.TTPC - Phòng Thanh tra Pháp chế",
+    "P.ĐTSĐH - Phòng Đào tạo Sau đại học",
+    "P.ĐTĐH - Phòng Đào tạo Đại học",
+    "P.ĐBCL - Phòng Đảm bảo Chất lượng",
+    "K.KHCB - Khoa Khoa học Cơ bản",
+    "K.Y TCC - Khoa Y tế Công cộng",
+    "K.RHM - Khoa Răng Hàm Mặt",
+    "K.YHCT - Khoa Y học Cổ truyền",
+    "T.DƯỢC - Khoa Dược",
+    "TRƯỜNG Y - Trường Y",
+    "TT.KCXN - Trung tâm Kiểm chuẩn Xét nghiệm",
+    "TT.KHCN UMP - Trung tâm KHCN UMP",
+    "TT.GDYH - Trung tâm Giáo dục Y học",
+    "TT.CNTT - Trung tâm Công nghệ Thông tin",
+    "TT.YSHPT - Trung tâm Y sinh học Phân tử",
+    "T.ĐĐ-KTYH - Khoa Điều dưỡng - Kỹ thuật Y học",
+    "TT.ĐTNLYT - Trung tâm Đào tạo Năng lực Y tế",
+    "BV.ĐHYD - Bệnh viện Đại học Y Dược",
+    "KTX - Ký túc xá",
+    "TV - Thư viện",
+    "PK.RHM - Phòng khám Răng Hàm Mặt",
+    "TCYH - Tạp chí Y học"
+]
 
 try:
     service = OGSMService()
@@ -34,11 +63,15 @@ try:
     col_upload, col_guide = st.columns([1, 1])
 
     with col_upload:
-        # Chọn mã đơn vị cập nhật
-        unit_code_input = st.text_input(
-            "📍 Mã Đơn Vị (viết tắt, ví dụ: HCTH, KHTH, TCYH, Y, DUOC...):",
-            placeholder="Nhập mã đơn vị..."
-        ).strip().upper()
+        # Dropdown chọn Đơn vị thay vì gõ tay
+        selected_unit_raw = st.selectbox(
+            "📍 Chọn Đơn Vị Báo Cáo:",
+            options=UMP_UNITS,
+            index=0
+        )
+        
+        # Tách mã đơn vị (ví dụ: "P.HCTH - Phòng..." -> "HCTH")
+        unit_code_clean = selected_unit_raw.split(" - ")[0].replace("P.", "").replace("T.", "").replace("K.", "").replace("TT.", "").replace("BV.", "").strip()
 
         uploaded_file = st.file_uploader(
             "Chọn file Excel báo cáo (.xlsx) của đơn vị:",
@@ -46,25 +79,21 @@ try:
         )
 
         if st.button("🚀 Tải Lên & Cập Nhật Báo Cáo", type="primary"):
-            if not unit_code_input:
-                st.error("Vui lòng nhập Mã Đơn Vị trước khi tải lên.")
-            elif not uploaded_file:
-                st.error("Vui lòng chọn file Excel (.xlsx) báo cáo.")
+            if not uploaded_file:
+                st.error("Vui lòng chọn file Excel (.xlsx) báo cáo trước khi tải lên.")
             else:
-                with st.spinner(f"Đang ghi đè báo cáo cho đơn vị {unit_code_input} lên OneDrive..."):
+                with st.spinner(f"Đang ghi đè báo cáo cho đơn vị {unit_code_clean} lên OneDrive..."):
                     try:
                         file_bytes = uploaded_file.read()
                         
-                        # Kiểm tra đọc thử file excel
+                        # Kiểm tra định dạng file
                         df_check = pd.read_excel(io.BytesIO(file_bytes), engine="openpyxl")
                         
-                        target_filename = f"P.{unit_code_input}.xlsx"
-                        
-                        # Tải lên OneDrive
+                        target_filename = f"P.{unit_code_clean}.xlsx"
                         success = service.upload_unit_file(target_filename, file_bytes)
                         
                         if success:
-                            st.success(f"🎉 Đã cập nhật thành công báo cáo cho đơn vị **{unit_code_input}** (`{target_filename}`)!")
+                            st.success(f"🎉 Đã cập nhật thành công báo cáo cho đơn vị **{unit_code_clean}** (`{target_filename}`)!")
                             st.info("💡 Bạn có thể quay lại mục **Dashboard** để xem các biểu đồ tiến độ vừa được tự động tính toán lại.")
                             st.cache_data.clear()
                         else:
@@ -75,9 +104,9 @@ try:
     with col_guide:
         st.info("""
         ### 📋 Hướng dẫn cập nhật định kỳ:
-        1. Sử dụng file Excel khung mẫu OGSM 2025-2029 của Nhà trường.
-        2. Cập nhật kết quả vào các cột: **`Tỷ lệ đạt (%)`** và **`Trạng thái`** (*Hoàn thành, Đang thực hiện, Chưa đến hạn, Không đạt*).
-        3. Nhập chính xác **Mã đơn vị** và bấm nút **Tải Lên**.
+        1. Sử dụng file Excel khung mẫu OGSM 2025–2029 của Nhà trường.
+        2. Cập nhật kết quả thực hiện vào cột **`Tỷ lệ đạt (%)`** (Trạng thái sẽ tự động được tính theo công thức sẵn trong file Excel).
+        3. Chọn đúng **Tên Đơn Vị** từ danh sách thả xuống và bấm nút **Tải Lên & Cập Nhật Báo Cáo**.
         4. Hệ thống sẽ tự động tổng hợp vào báo cáo chung của Đại học Y Dược TP.HCM.
         """)
 
