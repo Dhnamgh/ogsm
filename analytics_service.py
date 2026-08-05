@@ -1,5 +1,5 @@
 """
-OGSM Analytics Service - Thuật toán đếm và tính toán chỉ số OGSM chuẩn xác.
+OGSM Analytics Service - Thuật toán đếm và thống kê chỉ số.
 """
 
 import pandas as pd
@@ -22,28 +22,31 @@ class OGSMAnalyticsService:
 
         # 1. Đếm Objectives (O)
         total_objectives = 0
-        obj_col = next((c for c in df_calc.columns if any(k in c.lower() for k in ["objective", "mục tiêu chiến lược", "mã o"])), None)
-        if obj_col:
-            valid_o = df_calc[obj_col].dropna().astype(str).str.strip()
-            valid_o = valid_o[~valid_o.isin(["", "nan", "None"])]
-            total_objectives = valid_o.nunique()
+        obj_cols = [c for c in df_calc.columns if any(k in c.lower() for k in ["objective", "mục tiêu", "o"])]
+        for col in obj_cols:
+            valid_o = df_calc[col].dropna().astype(str).str.strip()
+            valid_o = valid_o[~valid_o.isin(["", "nan", "None", "NaN"])]
+            if not valid_o.empty:
+                total_objectives = valid_o.nunique()
+                break
 
         # 2. Đếm Goals / Strategies (G)
         total_goals = 0
-        goal_col = next((c for c in df_calc.columns if any(k in c.lower() for k in ["goal", "strategy", "chiến lược", "chỉ tiêu", "mã g"])), None)
-        if goal_col:
-            valid_g = df_calc[goal_col].dropna().astype(str).str.strip()
-            valid_g = valid_g[~valid_g.isin(["", "nan", "None"])]
-            total_goals = valid_g.nunique()
+        goal_cols = [c for c in df_calc.columns if any(k in c.lower() for k in ["goal", "strategy", "chiến lược", "chỉ tiêu", "g"])]
+        for col in goal_cols:
+            valid_g = df_calc[col].dropna().astype(str).str.strip()
+            valid_g = valid_g[~valid_g.isin(["", "nan", "None", "NaN"])]
+            if not valid_g.empty:
+                total_goals = valid_g.nunique()
+                break
 
-        # 3. Đếm Measures / KPIs (M)
+        # 3. Đếm Tổng số Measures
         total_measures = len(df_calc)
 
-        # 4. Tính phần trăm hoàn thành
-        status_col = next((c for c in df_calc.columns if any(k in c.lower() for k in ["status", "trạng thái", "tiến độ"])), None)
+        # 4. Tỷ lệ hoàn thành
         completed_measures = 0
-        if status_col:
-            status_clean = df_calc[status_col].dropna().astype(str).str.strip().str.lower()
+        if "Status" in df_calc.columns:
+            status_clean = df_calc["Status"].dropna().astype(str).str.strip().str.lower()
             completed_measures = len(status_clean[status_clean == "hoàn thành"])
 
         avg_completion_rate = (completed_measures / total_measures * 100) if total_measures > 0 else 0.0
@@ -58,13 +61,9 @@ class OGSMAnalyticsService:
 
     @staticmethod
     def get_status_distribution(df: pd.DataFrame) -> pd.DataFrame:
-        if df.empty:
+        if df.empty or "Status" not in df.columns:
             return pd.DataFrame(columns=["Status", "Count"])
 
-        status_col = next((c for c in df.columns if any(k in c.lower() for k in ["status", "trạng thái", "tiến độ"])), None)
-        if not status_col:
-            return pd.DataFrame(columns=["Status", "Count"])
-
-        counts = df[status_col].dropna().astype(str).str.strip().value_counts().reset_index()
+        counts = df["Status"].dropna().astype(str).str.strip().value_counts().reset_index()
         counts.columns = ["Status", "Count"]
         return counts
