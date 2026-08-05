@@ -1,6 +1,6 @@
 """
 Trang Executive Dashboard - Đại học Y Dược TP.HCM
-Sử dụng bộ ánh xạ CỐ ĐỊNH (Exact Mapping) để phân loại chuẩn xác 100% đơn vị vào đúng khối.
+Sử dụng Danh sách Ánh xạ Cứng (Hardcoded Mapping) 29 Đơn vị chính thức.
 """
 
 import sys
@@ -94,33 +94,69 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# BẢNG ÁNH XẠ CỨNG 29 ĐƠN VỊ THEO KHỐI
+UNIT_MASTER_MAP = {
+    # Khối Phòng chức năng (11 Đơn vị)
+    "P.HCTH": "Khối Phòng chức năng",
+    "P.QTGT": "Khối Phòng chức năng",
+    "P.TCCB": "Khối Phòng chức năng",
+    "P.CTSV": "Khối Phòng chức năng",
+    "P.KHCN": "Khối Phòng chức năng",
+    "P.HTQT": "Khối Phòng chức năng",
+    "P.KHTC": "Khối Phòng chức năng",
+    "P.TTPC": "Khối Phòng chức năng",
+    "P.ĐTSĐH": "Khối Phòng chức năng",
+    "P.DTSDH": "Khối Phòng chức năng",
+    "P.ĐTĐH": "Khối Phòng chức năng",
+    "P.DTĐH": "Khối Phòng chức năng",
+    "P.ĐBCL": "Khối Phòng chức năng",
+    "P.DBCL": "Khối Phòng chức năng",
+
+    # Khối Trường / Khoa (7 Đơn vị)
+    "TRƯỜNG Y": "Khối Trường / Khoa",
+    "TRUONG Y": "Khối Trường / Khoa",
+    "T.DƯỢC": "Khối Trường / Khoa",
+    "T.DUOC": "Khối Trường / Khoa",
+    "T.ĐĐ-KTYH": "Khối Trường / Khoa",
+    "T.DD-KTYH": "Khối Trường / Khoa",
+    "K.KHCB": "Khối Trường / Khoa",
+    "K.YHCT": "Khối Trường / Khoa",
+    "K.YTCC": "Khối Trường / Khoa",
+    "K.RHM": "Khối Trường / Khoa",
+
+    # Khối Trung tâm (6 Đơn vị)
+    "TT.KCCLXN": "Khối Trung tâm",
+    "TT.KHCN UMP": "Khối Trung tâm",
+    "TT.KHCNUMP": "Khối Trung tâm",
+    "TT.GDYH": "Khối Trung tâm",
+    "TT.CNTT": "Khối Trung tâm",
+    "TT.YSHPT": "Khối Trung tâm",
+    "TT.ĐTNLYT": "Khối Trung tâm",
+    "TT.DTNLYT": "Khối Trung tâm",
+
+    # Khối Bệnh viện, Phòng khám (2 Đơn vị)
+    "PKCK RHM": "Khối Bệnh viện / Phòng khám",
+    "PKCKRHM": "Khối Bệnh viện / Phòng khám",
+    "BV ĐHYD": "Khối Bệnh viện / Phòng khám",
+    "BVDHYD": "Khối Bệnh viện / Phòng khám",
+
+    # Đơn vị khác (3 Đơn vị)
+    "TCYH": "Đơn vị khác",
+    "THƯ VIỆN": "Đơn vị khác",
+    "THU VIEN": "Đơn vị khác",
+    "KTX": "Đơn vị khác"
+}
 
 def get_unit_group_exact(unit_code: str) -> str:
-    """
-    Phân loại chính xác 100% từng đơn vị vào đúng 1 Khối duy nhất dựa trên tên đơn vị / tên file.
-    """
-    u = str(unit_code).upper().strip()
-
-    # 1. Khối Bệnh viện / Phòng khám
-    if any(k in u for k in ["BV", "BVDHYD", "PKCK RHM", "PKRHM", "PHONG KHAM"]):
-        return "Khối Bệnh viện / Phòng khám"
-
-    # 2. Khối Trung tâm
-    if any(k in u for k in ["TT.", "TT ", "TRUNG TAM", "TTCNTT", "TTGDYH", "TTKCCL", "TTYSHPT", "KCCLXN"]):
-        return "Khối Trung tâm"
-
-    # 3. Khối Phòng chức năng
-    if any(k in u for k in ["P.", "PHONG", "HCTH", "QTGT", "TCCB", "CTSV", "KHCN", "HTQT", "KHTC", "TTPC", "DTSDH", "ĐTSĐH", "DTĐH", "ĐTĐH", "DBCL", "ĐBCL"]):
-        return "Khối Phòng chức năng"
-
-    # 4. Khối Đơn vị khác
-    if any(k in u for k in ["KTX", "TCYH", "THU VIEN", "THUVIEN", "TAP CHI"]):
-        return "Khối Đơn vị khác"
-
-    # 5. Khối Trường / Khoa (Căn bản, Dược, RHM, YYTCC, YHCT, Trường Y)
-    if any(k in u for k in ["K.", "KHOA", "T.", "TRUONG", "TRƯỜNG Y", "DUOC", "DƯỢC", "RHM", "YTCC", "YHCT", "KHCB", "DDKTYH", "ĐĐKTYH"]):
-        return "Khối Trường / Khoa"
-
+    """Tra cứu chính xác 100% Khối dựa trên Mã đơn vị"""
+    u_clean = str(unit_code).replace(".xlsx", "").strip().upper()
+    for key, group in UNIT_MASTER_MAP.items():
+        if key.upper() == u_clean:
+            return group
+    # Fallback cho trường hợp tên file có dạng nhẹ khác
+    for key, group in UNIT_MASTER_MAP.items():
+        if key.upper() in u_clean or u_clean in key.upper():
+            return group
     return "Đơn vị khác"
 
 
@@ -142,7 +178,6 @@ try:
     df_all = service.get_full_ogsm_data()
 
     if not df_all.empty:
-        # Gán Khối chính xác cho từng dòng dựa trên Unit_Code
         df_all["Unit_Group"] = df_all["Unit_Code"].apply(get_unit_group_exact)
 
         GROUPS_LIST = [
@@ -170,7 +205,6 @@ try:
             selected_unit = "Tất Cả Đơn Vị (Toàn Trường)"
             st.caption("Đại học Y Dược TP. Hồ Chí Minh - Báo Cáo Tổng Hợp Toàn Trường (29 Đơn Vị)")
         else:
-            # Chỉ lọc danh sách đơn vị thực sự thuộc về Khối này
             df_group_available = df_all[df_all["Unit_Group"] == selected_group]
             available_units_real = sorted(list(df_group_available["Unit_Code"].unique()))
             
@@ -189,7 +223,7 @@ try:
                 st.info(f"Chưa có tệp dữ liệu nào thuộc {selected_group}.")
                 selected_unit = f"GROUP:{selected_group}"
 
-        # Lọc dữ liệu chính xác
+        # Lọc dữ liệu
         df_filtered = df_all.copy()
         if selected_unit == "Tất Cả Đơn Vị (Toàn Trường)":
             pass
