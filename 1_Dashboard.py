@@ -1,6 +1,6 @@
 """
 Trang Executive Dashboard - Đại học Y Dược TP.HCM
-Sử dụng Danh sách Ánh xạ Cứng (Hardcoded Mapping) 29 Đơn vị chính thức.
+Chuẩn hóa 100% tên mã 29 đơn vị (bao gồm biến thể ĐD/ĐĐ, khoảng trắng và dấu tiếng Việt).
 """
 
 import sys
@@ -94,9 +94,9 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# BẢNG ÁNH XẠ CỨNG 29 ĐƠN VỊ THEO KHỐI
+# BẢNG ÁNH XẠ CHUẨN BAO GỒM TẤT CẢ BIẾN THỂ KÝ TỰ
 UNIT_MASTER_MAP = {
-    # Khối Phòng chức năng (11 Đơn vị)
+    # 1. Khối Phòng chức năng (11 Đơn vị)
     "P.HCTH": "Khối Phòng chức năng",
     "P.QTGT": "Khối Phòng chức năng",
     "P.TCCB": "Khối Phòng chức năng",
@@ -112,21 +112,23 @@ UNIT_MASTER_MAP = {
     "P.ĐBCL": "Khối Phòng chức năng",
     "P.DBCL": "Khối Phòng chức năng",
 
-    # Khối Trường / Khoa (7 Đơn vị)
+    # 2. Khối Trường / Khoa (7 Đơn vị)
     "TRƯỜNG Y": "Khối Trường / Khoa",
     "TRUONG Y": "Khối Trường / Khoa",
+    "TRƯỜNGY": "Khối Trường / Khoa",
     "T.DƯỢC": "Khối Trường / Khoa",
     "T.DUOC": "Khối Trường / Khoa",
     "T.ĐĐ-KTYH": "Khối Trường / Khoa",
+    "T.ĐD-KTYH": "Khối Trường / Khoa", # Sửa biến thể ĐD
     "T.DD-KTYH": "Khối Trường / Khoa",
     "K.KHCB": "Khối Trường / Khoa",
     "K.YHCT": "Khối Trường / Khoa",
     "K.YTCC": "Khối Trường / Khoa",
     "K.RHM": "Khối Trường / Khoa",
 
-    # Khối Trung tâm (6 Đơn vị)
+    # 3. Khối Trung tâm (6 Đơn vị)
     "TT.KCCLXN": "Khối Trung tâm",
-    "TT.KHCN UMP": "Khối Trung tâm",
+    "TT.KHCN UMP": "Khối Trung tâm", # Sửa biến thể có khoảng trắng
     "TT.KHCNUMP": "Khối Trung tâm",
     "TT.GDYH": "Khối Trung tâm",
     "TT.CNTT": "Khối Trung tâm",
@@ -134,13 +136,14 @@ UNIT_MASTER_MAP = {
     "TT.ĐTNLYT": "Khối Trung tâm",
     "TT.DTNLYT": "Khối Trung tâm",
 
-    # Khối Bệnh viện, Phòng khám (2 Đơn vị)
+    # 4. Khối Bệnh viện / Phòng khám (2 Đơn vị)
     "PKCK RHM": "Khối Bệnh viện / Phòng khám",
     "PKCKRHM": "Khối Bệnh viện / Phòng khám",
-    "BV ĐHYD": "Khối Bệnh viện / Phòng khám",
+    "BV ĐHYD": "Khối Bệnh viện / Phòng khám", # Sửa biến thể có khoảng trắng
     "BVDHYD": "Khối Bệnh viện / Phòng khám",
+    "BV.DHYD": "Khối Bệnh viện / Phòng khám",
 
-    # Đơn vị khác (3 Đơn vị)
+    # 5. Đơn vị khác (3 Đơn vị)
     "TCYH": "Đơn vị khác",
     "THƯ VIỆN": "Đơn vị khác",
     "THU VIEN": "Đơn vị khác",
@@ -148,15 +151,30 @@ UNIT_MASTER_MAP = {
 }
 
 def get_unit_group_exact(unit_code: str) -> str:
-    """Tra cứu chính xác 100% Khối dựa trên Mã đơn vị"""
-    u_clean = str(unit_code).replace(".xlsx", "").strip().upper()
+    """Tra cứu chính xác 100% Khối dựa trên Mã đơn vị / Tên file"""
+    u_raw = str(unit_code).replace(".xlsx", "").replace(".XLSX", "").strip()
+    u_clean = u_raw.upper()
+    
+    # 1. Khớp chính xác hoàn toàn
+    if u_clean in UNIT_MASTER_MAP:
+        return UNIT_MASTER_MAP[u_clean]
+
+    # 2. Khớp sau khi xóa toàn bộ khoảng trắng (chống lỗi gõ dư space)
+    u_nospace = u_clean.replace(" ", "")
     for key, group in UNIT_MASTER_MAP.items():
-        if key.upper() == u_clean:
+        if key.replace(" ", "").upper() == u_nospace:
             return group
-    # Fallback cho trường hợp tên file có dạng nhẹ khác
-    for key, group in UNIT_MASTER_MAP.items():
-        if key.upper() in u_clean or u_clean in key.upper():
-            return group
+
+    # 3. Phân loại theo tiền tố mẫu
+    if u_clean.startswith("P."):
+        return "Khối Phòng chức năng"
+    if u_clean.startswith("K.") or u_clean.startswith("T.") or "TRƯỜNG" in u_clean or "TRUONG" in u_clean:
+        return "Khối Trường / Khoa"
+    if u_clean.startswith("TT.") or "TRUNG TAM" in u_clean:
+        return "Khối Trung tâm"
+    if "BV" in u_clean or "PKCK" in u_clean:
+        return "Khối Bệnh viện / Phòng khám"
+
     return "Đơn vị khác"
 
 
@@ -260,6 +278,7 @@ try:
         st.markdown("---")
 
         # 3. Biểu đồ Tiến độ thực hiện KPI đến hạn năm hiện hành
+        current_yr = datetime.datetime.now().year
         fig_bar_current = create_stacked_kpi_by_unit_chart(df_filtered, current_year_only=True)
         st.plotly_chart(fig_bar_current, use_container_width=True)
 
