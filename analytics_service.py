@@ -1,5 +1,5 @@
 """
-OGSM Analytics Service - Thuật toán đếm và thống kê chỉ số.
+OGSM Analytics Service - Thuật toán đếm và thống kê chỉ số OGSM chuẩn xác.
 """
 
 import pandas as pd
@@ -22,28 +22,28 @@ class OGSMAnalyticsService:
 
         # 1. Đếm Objectives (O)
         total_objectives = 0
-        obj_cols = [c for c in df_calc.columns if any(k in c.lower() for k in ["objective", "mục tiêu", "o"])]
-        for col in obj_cols:
-            valid_o = df_calc[col].dropna().astype(str).str.strip()
-            valid_o = valid_o[~valid_o.isin(["", "nan", "None", "NaN"])]
-            if not valid_o.empty:
-                total_objectives = valid_o.nunique()
-                break
+        for col in df_calc.columns:
+            if any(k in col.lower() for k in ["objective", "mục tiêu chiến lược", "mã o", "stt_o"]):
+                valid_o = df_calc[col].dropna().astype(str).str.strip()
+                valid_o = valid_o[~valid_o.isin(["", "nan", "None", "NaN"])]
+                if not valid_o.empty:
+                    total_objectives = valid_o.nunique()
+                    break
 
         # 2. Đếm Goals / Strategies (G)
         total_goals = 0
-        goal_cols = [c for c in df_calc.columns if any(k in c.lower() for k in ["goal", "strategy", "chiến lược", "chỉ tiêu", "g"])]
-        for col in goal_cols:
-            valid_g = df_calc[col].dropna().astype(str).str.strip()
-            valid_g = valid_g[~valid_g.isin(["", "nan", "None", "NaN"])]
-            if not valid_g.empty:
-                total_goals = valid_g.nunique()
-                break
+        for col in df_calc.columns:
+            if any(k in col.lower() for k in ["goal", "strategy", "mục tiêu cụ thể", "chiến lược", "mã g", "stt_g"]):
+                valid_g = df_calc[col].dropna().astype(str).str.strip()
+                valid_g = valid_g[~valid_g.isin(["", "nan", "None", "NaN"])]
+                if not valid_g.empty:
+                    total_goals = valid_g.nunique()
+                    break
 
-        # 3. Đếm Tổng số Measures
+        # 3. Đếm Measures / KPIs (M)
         total_measures = len(df_calc)
 
-        # 4. Tỷ lệ hoàn thành
+        # 4. Thống kê tiến độ hoàn thành
         completed_measures = 0
         if "Status" in df_calc.columns:
             status_clean = df_calc["Status"].dropna().astype(str).str.strip().str.lower()
