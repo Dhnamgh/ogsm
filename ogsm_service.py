@@ -1,10 +1,11 @@
 """
 OGSM Service - Quản lý nạp, tổng hợp, chuẩn hóa và lưu trữ dữ liệu báo cáo OGSM.
-Sửa triệt để lỗi Duplicate column names.
+Bộ ánh xạ dữ liệu thông minh chống lệch cột Objectives / Goals.
 """
 
 import os
 import io
+import re
 from pathlib import Path
 import pandas as pd
 from logger import get_logger
@@ -23,7 +24,6 @@ class OGSMService:
         self.data_folder = data_folder
 
     def upload_unit_file(self, filename: str, file_bytes: bytes) -> bool:
-        """Lưu hoặc ghi đè file báo cáo Excel của đơn vị vào thư mục DATA."""
         try:
             target_path = self.data_folder / filename
             with open(target_path, "wb") as f:
@@ -35,9 +35,6 @@ class OGSMService:
             return False
 
     def _normalize_columns(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Chuẩn hóa tên cột không gây trùng lặp (Avoid duplicate column names).
-        """
         new_cols = []
         seen_cols = set()
 
@@ -45,24 +42,32 @@ class OGSMService:
             col_clean = str(col).strip().lower()
             mapped_name = str(col).strip()
 
-            if any(k in col_clean for k in ["objective_id", "mã o", "mục tiêu chiến lược", "objective"]):
+            # Nhận diện cột Objectives (O)
+            if any(k in col_clean for k in ["objective_id", "mục tiêu chiến lược", "mục tiêu chung", "stt_o", "mã o", "objectives", "objective"]):
                 mapped_name = "Objective_ID"
-            elif any(k in col_clean for k in ["goal_id", "strategy_id", "mã g", "mã s", "chỉ tiêu", "chiến lược", "goal", "strategy"]):
+            # Nhận diện cột Goals / Strategies (G/S)
+            elif any(k in col_clean for k in ["goal_id", "strategy_id", "mục tiêu cụ thể", "chiến lược", "chỉ tiêu", "stt_g", "stt_s", "goals", "goal", "strategy"]):
                 mapped_name = "Goal_ID"
-            elif any(k in col_clean for k in ["measure_id", "mã m", "mã kpi", "measure", "kpi"]):
+            # Nhận diện cột Measures / KPIs (M)
+            elif any(k in col_clean for k in ["measure_id", "mã kpi", "chỉ số đo lường", "measures", "measure", "kpi_id", "kpi"]):
                 mapped_name = "Measure_ID"
-            elif any(k in col_clean for k in ["measure_desc", "nội dung", "mô tả", "biện pháp"]):
+            # Nhận diện cột Mô tả Measure
+            elif any(k in col_clean for k in ["measure_desc", "nội dung", "mô tả", "biện pháp", "tên kpi"]):
                 mapped_name = "Measure_Desc"
+            # Nhận diện cột Năm
             elif any(k in col_clean for k in ["target_year", "năm hoàn thành", "năm", "thời gian"]):
                 mapped_name = "Target_Year"
-            elif any(k in col_clean for k in ["target", "chỉ tiêu giao", "mục tiêu đặt ra"]):
+            # Nhận diện cột Chỉ tiêu đặt ra
+            elif any(k in col_clean for k in ["target", "chỉ tiêu giao", "mục tiêu đặt ra", "kế hoạch"]):
                 mapped_name = "Target"
+            # Nhận diện cột Thực hiện / Kết quả
             elif any(k in col_clean for k in ["actual", "thực hiện", "kết quả", "đạt được", "tỷ lệ đạt"]):
                 mapped_name = "Actual"
-            elif any(k in col_clean for k in ["status", "trạng thái", "tiến độ"]):
+            # Nhận diện cột Trạng thái
+            elif any(k in col_clean for k in ["status", "trạng thái", "tiến độ", "đánh giá"]):
                 mapped_name = "Status"
 
-            # Đảm bảo không tạo tên cột trùng
+            # Đảm bảo tên cột không bị trùng
             if mapped_name in seen_cols:
                 suffix = 1
                 while f"{mapped_name}_{suffix}" in seen_cols:
@@ -74,7 +79,7 @@ class OGSMService:
 
         df.columns = new_cols
 
-        # Đảm bảo các cột tối thiểu bắt buộc
+        # Bổ sung cột nếu thiếu
         for c in ["Unit_Code", "Objective_ID", "Goal_ID", "Measure_ID", "Measure_Desc", "Target", "Actual", "Status", "Target_Year"]:
             if c not in df.columns:
                 df[c] = ""
@@ -82,22 +87,19 @@ class OGSMService:
         return df
 
     def get_full_ogsm_data(self) -> pd.DataFrame:
-        """Đọc tất cả file Excel trong thư mục DATA và tổng hợp an toàn."""
         all_dfs = []
         if not self.data_folder.exists():
             return pd.DataFrame()
 
         for file_path in self.data_folder.glob("*.xlsx"):
             if file_path.name.startswith("~$"):
-                continue  # Bỏ qua file tạm của Excel
+                continue
             try:
                 df = pd.read_excel(file_path, engine="openpyxl")
                 unit_code = file_path.stem.replace(".xlsx", "").strip()
 
                 df = self._normalize_columns(df)
                 df["Unit_Code"] = unit_code
-
-                # Chỉ lấy các cột duy nhất nếu có trùng lặp cột ngoài ý muốn
                 df = df.loc[:, ~df.columns.duplicated()]
 
                 all_dfs.append(df)
