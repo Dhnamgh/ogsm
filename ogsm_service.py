@@ -1,6 +1,5 @@
 """
-OGSM Service - Quản lý nạp, tổng hợp và chuẩn hóa dữ liệu báo cáo OGSM.
-Bộ quét tự động đa tầng đảm bảo không bao giờ bị rỗng dữ liệu hay lỗi Status.
+OGSM Service - Tự động tìm và đọc toàn bộ tệp Excel dữ liệu OGSM.
 """
 
 import os
@@ -29,7 +28,6 @@ class OGSMService:
             self.data_folder.mkdir(parents=True, exist_ok=True)
 
     def upload_unit_file(self, filename: str, file_bytes: bytes) -> bool:
-        """Lưu hoặc ghi đè file báo cáo Excel vào hệ thống."""
         try:
             target_path = self.data_folder / filename
             with open(target_path, "wb") as f:
@@ -41,26 +39,22 @@ class OGSMService:
             return False
 
     def get_full_ogsm_data(self) -> pd.DataFrame:
-        """Quét và gộp tất cả các file Excel báo cáo của các đơn vị."""
         all_dfs = []
 
-        # Quét ưu tiên trong thư mục DATA, nếu trống quét toàn bộ dự án
         excel_files = list(self.data_folder.glob("*.xlsx")) + list(self.data_folder.glob("**/*.xlsx"))
         if not excel_files:
             excel_files = list(BASE_DIR.glob("**/*.xlsx"))
 
         for file_path in excel_files:
             if file_path.name.startswith("~$"):
-                continue  # Bỏ qua file tạm Excel
+                continue
             try:
                 df = pd.read_excel(file_path, engine="openpyxl")
                 if df.empty:
                     continue
 
-                # Chuẩn hóa tên cột
                 df.columns = [str(c).strip() for c in df.columns]
 
-                # Ánh xạ linh hoạt tên cột về tên chuẩn
                 for col in list(df.columns):
                     c_low = col.lower()
                     if any(k in c_low for k in ["objective_id", "stt_o", "mã o", "mục tiêu chiến lược", "objective"]):
@@ -72,11 +66,9 @@ class OGSMService:
                     elif any(k in c_low for k in ["status", "trạng thái", "tiến độ", "đánh giá"]):
                         df.rename(columns={col: "Status"}, inplace=True)
 
-                # Bổ sung cột Status mặc định nếu file thiếu
                 if "Status" not in df.columns:
                     df["Status"] = "Chưa đến hạn"
 
-                # Gán mã đơn vị từ tên file
                 unit_code = file_path.stem.replace(".xlsx", "").strip()
                 df["Unit_Code"] = unit_code
 
