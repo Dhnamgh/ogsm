@@ -1,5 +1,5 @@
 """
-OGSM Service - Đọc và tổng hợp toàn bộ các file Excel báo cáo trong thư mục DATA.
+OGSM Service - Tự động kết nối dịch vụ OneDrive và tổng hợp dữ liệu OGSM.
 """
 
 import os
@@ -19,48 +19,46 @@ class OGSMService:
         if not self.data_folder.exists():
             self.data_folder.mkdir(parents=True, exist_ok=True)
 
-    def upload_unit_file(self, filename: str, file_bytes: bytes) -> bool:
-        """Lưu file báo cáo vào thư mục DATA."""
-        try:
-            target_path = self.data_folder / filename
-            with open(target_path, "wb") as f:
-                f.write(file_bytes)
-            logger.info(f"Đã lưu thành công file {filename}")
-            return True
-        except Exception as e:
-            logger.error(f"Lỗi khi lưu file {filename}: {e}")
-            return False
-
     def get_full_ogsm_data(self) -> pd.DataFrame:
-        """Quét toàn bộ file .xlsx trong thư mục DATA và tổng hợp dữ liệu."""
+        """Đọc và tổng hợp toàn bộ file dữ liệu OGSM từ hệ thống."""
         all_dfs = []
 
-        # Tìm các file Excel trong thư mục DATA hoặc trong thư mục dự án
+        # 1. Thử gọi dịch vụ kết nối OneDrive sẵn có của hệ thống
+        try:
+            from onedrive_service import OneDriveService
+            svc = OneDriveService()
+            if hasattr(svc, "get_all_excel_data"):
+                data = svc.get_all_excel_data()
+                if isinstance(data, pd.DataFrame) and not data.empty:
+                    return data
+                elif isinstance(data, list) and len(data) > 0:
+                    return pd.concat(data, ignore_index=True)
+        except Exception as e:
+            logger.debug(f"Không gọi được OneDriveService: {e}")
+
+        # 2. Quét thư mục dữ liệu đồng bộ
         excel_files = list(self.data_folder.glob("*.xlsx")) + list(self.data_folder.glob("**/*.xlsx"))
         if not excel_files:
-            excel_files = list(BASE_DIR.glob("**/*.xlsx"))
+            excel_files = [f for f in BASE_DIR.glob("**/*.xlsx") if "TEMPLATE" not in f.name.upper()]
 
         for file_path in excel_files:
-            # Bỏ qua file tạm và file OGSM_TEMPLATE mẫu
             if file_path.name.startswith("~$") or "TEMPLATE" in file_path.name.upper():
                 continue
-
             try:
                 df = pd.read_excel(file_path, engine="openpyxl")
                 if df.empty:
                     continue
 
-                # Chuẩn hóa tên cột
                 df.columns = [str(c).strip() for c in df.columns]
 
-                # Ánh xạ tên cột linh hoạt về chuẩn
+                # Chuẩn hóa tên cột
                 for col in list(df.columns):
                     c_low = col.lower()
-                    if any(k in c_low for k in ["objective_id", "stt_o", "mã o", "mục tiêu chiến lược", "objective"]):
+                    if any(k in c_low for k in ["objective_id", "stt_o", "mã o", "mục tiêu chiến lược"]):
                         df.rename(columns={col: "Objective_ID"}, inplace=True)
-                    elif any(k in c_low for k in ["goal_id", "strategy_id", "stt_g", "stt_s", "mã g", "mã s", "goal", "strategy"]):
+                    elif any(k in c_low for k in ["goal_id", "strategy_id", "stt_g", "stt_s", "mã g", "mã s"]):
                         df.rename(columns={col: "Goal_ID"}, inplace=True)
-                    elif any(k in c_low for k in ["measure_id", "stt_m", "mã m", "mã kpi", "measure", "kpi"]):
+                    elif any(k in c_low for k in ["measure_id", "stt_m", "mã m", "mã kpi", "measure"]):
                         df.rename(columns={col: "Measure_ID"}, inplace=True)
                     elif any(k in c_low for k in ["status", "trạng thái", "tiến độ", "đánh giá"]):
                         df.rename(columns={col: "Status"}, inplace=True)
@@ -68,16 +66,14 @@ class OGSMService:
                 if "Status" not in df.columns:
                     df["Status"] = "Chưa đến hạn"
 
-                # Lấy mã đơn vị từ tên tệp Excel
                 unit_code = file_path.stem.replace(".xlsx", "").strip()
                 df["Unit_Code"] = unit_code
 
                 all_dfs.append(df)
             except Exception as e:
-                logger.error(f"Lỗi khi đọc file {file_path.name}: {e}")
+                logger.error(f"Lỗi đọc file {file_path.name}: {e}")
 
         if all_dfs:
-            master_df = pd.concat(all_dfs, ignore_index=True)
-            return master_df
+            return pd.concat(all_dfs, ignore_index=True)
 
         return pd.DataFrame()
