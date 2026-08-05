@@ -1,159 +1,248 @@
 """
-OGSM Charts Module - Xử lý vẽ các biểu đồ Plotly cho Dashboard.
-Đã kiểm tra kỹ lưỡng kiểu dữ liệu để tránh lỗi 'DataFrame' object has no attribute 'str'.
+Plotly Chart Builders for OGSM Portal.
+Chuẩn hóa logic tính tỷ lệ hoàn thành theo năm hiện hành vs Cả giai đoạn 2025-2030.
 """
 
-import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+import pandas as pd
+import datetime
+import re
 
 
-def create_status_donut_chart(df_status: pd.DataFrame):
-    """Vẽ biểu đồ tròn phân bố trạng thái thực hiện."""
-    if df_status is None or df_status.empty or "Status" not in df_status.columns:
+def extract_year(val) -> int:
+    """Trích xuất năm 4 chữ số từ chuỗi dữ liệu (Mặc định 2026 nếu không ghi để tính cho năm hiện hành)."""
+    if pd.isna(val):
+        return 2026
+    val_str = str(val).strip()
+    match = re.search(r'\b(202[4-9]|203[0-0])\b', val_str)
+    if match:
+        return int(match.group(1))
+    match_any = re.search(r'\b\d{4}\b', val_str)
+    if match_any:
+        return int(match_any.group(1))
+    return 2026
+
+
+def create_status_donut_chart(df_status: pd.DataFrame) -> go.Figure:
+    if df_status.empty:
         fig = go.Figure()
-        fig.add_annotation(text="Chưa có dữ liệu trạng thái", showarrow=False, font=dict(size=14))
-        fig.update_layout(height=350)
+        fig.update_layout(title="Chưa có dữ liệu trạng thái")
         return fig
 
-    # Màu sắc cố định cho từng trạng thái
     color_map = {
-        "Hoàn thành": "#1b4d3e",        # Xanh lục đậm
-        "Chưa đến hạn": "#0099e6",      # Xanh dương
-        "Đang thực hiện": "#e67e22",     # Cam
-        "Không đạt": "#c0392b"          # Đỏ
+        "Hoàn thành": "#0f4c5c",      # Xanh lam đậm
+        "Đang thực hiện": "#fb8b24",  # Cam
+        "Không đạt": "#1f5f3e",       # Xanh lá
+        "Chưa đến hạn": "#00a8e8",    # Xanh dương
     }
 
     fig = px.pie(
         df_status,
         names="Status",
         values="Count",
-        hole=0.5,
-        title="<b>Biểu đồ: Phân bố trạng thái thực hiện Measures</b>",
+        hole=0.4,
         color="Status",
-        color_discrete_map=color_map
-    )
-
-    fig.update_traces(textposition='inside', textinfo='percent+label')
-    fig.update_layout(
-        height=380,
-        margin=dict(l=20, r=20, t=50, b=20),
-        legend=dict(orientation="v", yanchor="middle", y=0.5, xanchor="left", x=1.05)
-    )
-    return fig
-
-
-def create_objective_progress_chart(df: pd.DataFrame):
-    """Vẽ biểu đồ tiến độ thực hiện theo từng Mục tiêu chiến lược (Objectives)."""
-    if df is None or df.empty:
-        fig = go.Figure()
-        fig.add_annotation(text="Chưa có dữ liệu Mục tiêu chiến lược", showarrow=False, font=dict(size=14))
-        fig.update_layout(height=380)
-        return fig
-
-    # Lấy tên cột Objective
-    obj_col = next((c for c in df.columns if any(k in str(c).lower() for k in ["objective", "mục tiêu chiến lược", "mã o", "objective_id"])), None)
-    status_col = next((c for c in df.columns if any(k in str(c).lower() for k in ["status", "trạng thái", "tiến độ"])), None)
-
-    if not obj_col or not status_col:
-        fig = go.Figure()
-        fig.add_annotation(text="Chưa có dữ liệu Mục tiêu chiến lược", showarrow=False, font=dict(size=14))
-        fig.update_layout(height=380)
-        return fig
-
-    df_plot = df.copy()
-    # Chuyển đổi an toàn cột dữ liệu thành chuỗi trước khi gọi .str
-    df_plot[obj_col] = df_plot[obj_col].astype(str).str.strip()
-    df_plot[status_col] = df_plot[status_col].astype(str).str.strip()
-
-    # Bỏ dòng trống
-    df_plot = df_plot[~df_plot[obj_col].isin(["", "nan", "None", "NaN"])]
-
-    if df_plot.empty:
-        fig = go.Figure()
-        fig.add_annotation(text="Chưa có dữ liệu Mục tiêu chiến lược", showarrow=False, font=dict(size=14))
-        fig.update_layout(height=380)
-        return fig
-
-    # Nhóm dữ liệu theo Objective và Status
-    grouped = df_plot.groupby([obj_col, status_col]).size().reset_index(name="Count")
-
-    color_map = {
-        "Hoàn thành": "#1b4d3e",
-        "Chưa đến hạn": "#0099e6",
-        "Đang thực hiện": "#e67e22",
-        "Không đạt": "#c0392b"
-    }
-
-    fig = px.bar(
-        grouped,
-        x=obj_col,
-        y="Count",
-        color=status_col,
-        title="<b>Biểu đồ: Tiến độ thực hiện theo từng Mục tiêu chiến lược (Objectives)</b>",
         color_discrete_map=color_map,
-        barmode="stack"
+        title="Biểu đồ: Phân bố trạng thái thực hiện Measures",
     )
-
+    fig.update_traces(textinfo="percent+label")
     fig.update_layout(
-        height=380,
-        xaxis_title="Mục tiêu chiến lược",
-        yaxis_title="Số lượng Measures",
-        margin=dict(l=20, r=20, t=50, b=20),
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+        showlegend=True, 
+        margin=dict(t=50, b=10, l=10, r=10),
+        title=dict(font=dict(size=15, color="#1877F2"))
     )
     return fig
 
 
-def create_stacked_kpi_by_unit_chart(df: pd.DataFrame, current_year_only: bool = False):
-    """Vẽ biểu đồ cột chồng tiến độ thực hiện theo đơn vị."""
-    if df is None or df.empty:
+def create_objective_progress_chart(df: pd.DataFrame) -> go.Figure:
+    if df.empty or "Objective_ID" not in df.columns:
         fig = go.Figure()
-        fig.add_annotation(text="Chưa có dữ liệu đơn vị", showarrow=False, font=dict(size=14))
-        fig.update_layout(height=400)
+        fig.update_layout(title="Chưa có dữ liệu Mục tiêu chiến lược")
         return fig
 
-    unit_col = "Unit_Code" if "Unit_Code" in df.columns else None
-    status_col = next((c for c in df.columns if any(k in str(c).lower() for k in ["status", "trạng thái", "tiến độ"])), None)
-
-    if not unit_col or not status_col:
-        fig = go.Figure()
-        fig.add_annotation(text="Chưa có dữ liệu đơn vị", showarrow=False, font=dict(size=14))
-        fig.update_layout(height=400)
-        return fig
-
-    df_plot = df.copy()
-    df_plot[unit_col] = df_plot[unit_col].astype(str).str.strip()
-    df_plot[status_col] = df_plot[status_col].astype(str).str.strip()
-
-    grouped = df_plot.groupby([unit_col, status_col]).size().reset_index(name="Count")
-
+    df_calc = df.copy()
+    df_calc["Obj_Label"] = df_calc["Objective_ID"].astype(str).str.strip()
+    status_order = ["Hoàn thành", "Đang thực hiện", "Không đạt", "Chưa đến hạn"]
+    
     color_map = {
-        "Hoàn thành": "#1b4d3e",
-        "Chưa đến hạn": "#0099e6",
-        "Đang thực hiện": "#e67e22",
-        "Không đạt": "#c0392b"
+        "Hoàn thành": "#0f4c5c",
+        "Đang thực hiện": "#fb8b24",
+        "Không đạt": "#1f5f3e",
+        "Chưa đến hạn": "#00a8e8",
     }
 
-    title_text = "<b>Biểu đồ: Cơ cấu trạng thái thực hiện OGSM theo đơn vị</b>"
+    obj_status = df_calc.groupby(["Obj_Label", "Status"]).size().unstack(fill_value=0)
+    if obj_status.empty:
+        fig = go.Figure()
+        fig.update_layout(title="Chưa có dữ liệu Objectives")
+        return fig
+
+    obj_pct = obj_status.div(obj_status.sum(axis=1), axis=0) * 100
+    fig = go.Figure()
+
+    for status in status_order:
+        if status in obj_pct.columns:
+            fig.add_trace(go.Bar(
+                name=f"KPI {status.lower()}",
+                x=obj_pct.index,
+                y=obj_pct[status],
+                marker_color=color_map.get(status, "#757575")
+            ))
+
+    fig.update_layout(
+        barmode="stack",
+        title=dict(text="<b>Biểu đồ: Tiến độ thực hiện theo từng Mục tiêu chiến lược (Objectives)</b>", font=dict(size=15, color="#1877F2")),
+        xaxis_title=None,
+        yaxis_title=None,
+        yaxis=dict(ticksuffix="%", range=[0, 100]),
+        legend=dict(orientation="h", yanchor="bottom", y=-0.35, xanchor="center", x=0.5),
+        margin=dict(t=50, b=80, l=10, r=10),
+        height=450
+    )
+    return fig
+
+
+def create_stacked_kpi_by_unit_chart(df: pd.DataFrame, current_year_only: bool = False) -> go.Figure:
+    if df.empty or "Unit_Code" not in df.columns:
+        fig = go.Figure()
+        fig.update_layout(title="Chưa có dữ liệu biểu đồ")
+        return fig
+
+    df_calc = df.copy()
+    current_year = datetime.datetime.now().year
+
     if current_year_only:
-        title_text = "<b>Biểu đồ: Cơ cấu trạng thái thực hiện OGSM theo đơn vị (Năm hiện hành)</b>"
+        year_col = "Target_Year" if "Target_Year" in df_calc.columns else "Year"
+        if year_col in df_calc.columns:
+            df_calc["Extracted_Year"] = df_calc[year_col].apply(extract_year)
+            df_calc = df_calc[df_calc["Extracted_Year"] <= current_year]
 
-    fig = px.bar(
-        grouped,
-        x=unit_col,
-        y="Count",
-        color=status_col,
-        title=title_text,
-        color_discrete_map=color_map,
-        barmode="stack"
+    if df_calc.empty:
+        fig = go.Figure()
+        fig.update_layout(title=f"Không có KPI nào có hạn đến năm {current_year}")
+        return fig
+
+    status_order = ["Hoàn thành", "Đang thực hiện", "Không đạt", "Chưa đến hạn"]
+    color_map = {
+        "Hoàn thành": "#0f4c5c",
+        "Đang thực hiện": "#fb8b24",
+        "Không đạt": "#1f5f3e",
+        "Chưa đến hạn": "#00a8e8",
+    }
+
+    unit_status = df_calc.groupby(["Unit_Code", "Status"]).size().unstack(fill_value=0)
+    unit_pct = unit_status.div(unit_status.sum(axis=1), axis=0) * 100
+
+    fig = go.Figure()
+    for status in status_order:
+        if status in unit_pct.columns:
+            fig.add_trace(go.Bar(
+                name=f"KPI {status.lower()}",
+                x=unit_pct.index,
+                y=unit_pct[status],
+                marker_color=color_map.get(status, "#757575")
+            ))
+
+    chart_title = (
+        f"Biểu đồ: Tiến độ thực hiện KPI đến hạn theo đơn vị (đến năm {current_year})"
+        if current_year_only
+        else "Biểu đồ: Cơ cấu thực hiện KPI giai đoạn 2025–2030 theo đơn vị"
     )
 
     fig.update_layout(
-        height=450,
-        xaxis_title="Đơn vị báo cáo",
-        yaxis_title="Số lượng Chỉ số (Measures)",
-        margin=dict(l=20, r=20, t=50, b=50),
-        xaxis=dict(tickangle=-45)
+        barmode="stack",
+        title=dict(text=f"<b>{chart_title}</b>", font=dict(size=15, color="#1877F2")),
+        xaxis_title=None,
+        yaxis_title=None,
+        yaxis=dict(ticksuffix="%", range=[0, 100]),
+        legend=dict(orientation="h", yanchor="bottom", y=-0.35, xanchor="center", x=0.5),
+        margin=dict(t=50, b=80, l=10, r=10),
+        height=480
+    )
+    return fig
+
+
+def create_total_kpis_by_unit_chart(df: pd.DataFrame) -> go.Figure:
+    """Biểu đồ: Tổng số KPI theo đơn vị"""
+    if df.empty or "Unit_Code" not in df.columns:
+        fig = go.Figure()
+        fig.update_layout(title="Chưa có dữ liệu tổng số KPI theo đơn vị")
+        return fig
+
+    counts = df.groupby("Unit_Code").size().reset_index(name="Total_KPIs")
+    counts = counts.sort_values(by="Total_KPIs", ascending=True)
+
+    fig = go.Figure(go.Bar(
+        x=counts["Total_KPIs"],
+        y=counts["Unit_Code"],
+        orientation="h",
+        marker_color="#185a7d",
+        text=counts["Total_KPIs"],
+        textposition="outside"
+    ))
+
+    fig.update_layout(
+        title=dict(text="<b>Biểu đồ: Tổng số KPI theo đơn vị</b>", font=dict(size=16, color="#d90429")),
+        xaxis_title=None,
+        yaxis_title=None,
+        margin=dict(t=50, b=30, l=10, r=40),
+        height=max(450, len(counts) * 22)
+    )
+    return fig
+
+
+def create_completion_rate_by_unit_chart(df: pd.DataFrame, current_year_only: bool = False) -> go.Figure:
+    """Biểu đồ: Tỷ lệ hoàn thành theo đơn vị"""
+    if df.empty or "Unit_Code" not in df.columns or "Status" not in df.columns:
+        fig = go.Figure()
+        fig.update_layout(title="Chưa có dữ liệu tỷ lệ hoàn thành")
+        return fig
+
+    df_calc = df.copy()
+    current_year = datetime.datetime.now().year
+
+    # Lọc năm
+    if current_year_only:
+        year_col = "Target_Year" if "Target_Year" in df_calc.columns else "Year"
+        if year_col in df_calc.columns:
+            df_calc["Extracted_Year"] = df_calc[year_col].apply(extract_year)
+            df_calc = df_calc[df_calc["Extracted_Year"] <= current_year]
+
+    if df_calc.empty:
+        fig = go.Figure()
+        fig.update_layout(title=f"Không có dữ liệu KPI đến năm {current_year}")
+        return fig
+
+    grouped = df_calc.groupby("Unit_Code")
+    rates = []
+    for unit, group in grouped:
+        total = len(group)
+        done = len(group[group["Status"] == "Hoàn thành"])
+        rate = (done / total * 100) if total > 0 else 0
+        rates.append({"Unit_Code": unit, "Rate": round(rate, 2)})
+
+    df_rate = pd.DataFrame(rates).sort_values(by="Rate", ascending=True)
+
+    fig = go.Figure(go.Bar(
+        x=df_rate["Rate"],
+        y=df_rate["Unit_Code"],
+        orientation="h",
+        marker_color="#185a7d",
+        text=[f"{r:.2f}%" for r in df_rate["Rate"]],
+        textposition="outside"
+    ))
+
+    chart_title = (
+        f"Biểu đồ: Tỷ lệ hoàn thành theo đơn vị năm {current_year}"
+        if current_year_only
+        else "Biểu đồ: Tỷ lệ hoàn thành theo đơn vị giai đoạn 2025–2030 (Tổng thể)"
+    )
+
+    fig.update_layout(
+        title=dict(text=f"<b>{chart_title}</b>", font=dict(size=16, color="#d90429")),
+        xaxis=dict(ticksuffix="%", range=[0, 115]),
+        margin=dict(t=50, b=30, l=10, r=50),
+        height=max(450, len(df_rate) * 22)
     )
     return fig
