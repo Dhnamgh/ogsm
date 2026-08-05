@@ -1,6 +1,6 @@
 """
 Trang Quản lý dữ liệu OGSM - Đại học Y Dược TP.HCM
-Cập nhật đơn vị tải file liên kết thời gian thực và thiết kế Banner khung xanh bo góc chữ trắng.
+Cấu hình Banner tiêu đề ôm sát chữ, bo góc mượt mà như nút bấm.
 """
 
 import sys
@@ -20,73 +20,74 @@ logger = get_logger()
 
 st.set_page_config(page_title="Quản Lý Dữ Liệu - OGSM Portal", layout="wide")
 
-# CSS Thiết kế Banner chữ trắng nền xanh bo 8px & Khung tiêu đề con
+# Bộ CSS căn chỉnh Banner tiêu đề ôm gọn theo độ dài chữ (display: inline-block)
 st.markdown("""
 <style>
-    /* 1. Banner Tiêu Đề Chính: Khung nền xanh Facebook bo 8px, chữ trắng nổi bật */
+    /* 1. Banner Tiêu Đề Chính của Trang: Ôm sát độ dài chữ */
     .main-banner-blue {
-        background: linear-gradient(135deg, #1877F2 0%, #0b51c5 100%);
+        display: inline-block;
+        background: #1877F2;
         color: #ffffff !important;
-        padding: 16px 24px;
+        padding: 10px 24px;
         border-radius: 8px;
-        font-size: 24px;
+        font-size: 22px;
         font-weight: 700;
-        text-align: center;
-        box-shadow: 0 4px 12px rgba(24, 119, 242, 0.35);
-        margin-bottom: 24px;
+        box-shadow: 0 4px 10px rgba(24, 119, 242, 0.3);
+        margin-bottom: 20px;
     }
 
-    /* 2. Banner Tiêu Đề Mục lớn */
+    /* 2. Banner Tiêu Đề Mục Lớn: Ôm sát độ dài chữ */
     .section-banner-blue {
+        display: inline-block;
         background-color: #1877F2;
         color: #ffffff !important;
-        padding: 12px 20px;
+        padding: 10px 20px;
         border-radius: 8px;
-        font-size: 17px;
+        font-size: 16px;
         font-weight: 700;
-        margin: 16px 0px 16px 0px;
-        box-shadow: 0 2px 8px rgba(24, 119, 242, 0.25);
+        margin: 14px 0px 14px 0px;
+        box-shadow: 0 2px 6px rgba(24, 119, 242, 0.25);
     }
 
     /* 3. Khung Tiêu Đề Con: Nền trắng chữ xanh bo góc */
     .subsection-header-blue {
         background-color: #ffffff;
         color: #1877F2;
-        padding: 10px 16px;
+        padding: 8px 14px;
         border-radius: 8px;
         border: 1px solid #e4e6eb;
         font-size: 15px;
         font-weight: 700;
-        margin: 10px 0px 12px 0px;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.03);
+        margin: 8px 0px 10px 0px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.03);
     }
 
-    /* Style nút chọn Khối đơn vị kiểu thẻ bo góc mượt mà */
+    /* Nút chọn Khối đơn vị kiểu thẻ bo góc */
     div[data-testid="stSegmentedControl"] button {
         border-radius: 8px !important;
         font-weight: 600 !important;
     }
 
-    /* Styling nút bấm Tải lên */
+    /* Nút bấm Tải lên chuẩn màu xanh Facebook */
     .stButton > button {
         background-color: #1877F2;
         color: white;
         border-radius: 8px;
         font-weight: bold;
         border: none;
-        padding: 12px 28px;
-        font-size: 16px;
+        padding: 10px 24px;
+        font-size: 15px;
         transition: all 0.2s;
         box-shadow: 0 4px 10px rgba(24, 119, 242, 0.3);
     }
     .stButton > button:hover {
         background-color: #166fe5;
-        box-shadow: 0 6px 16px rgba(22, 111, 229, 0.45);
+        box-shadow: 0 6px 14px rgba(22, 111, 229, 0.4);
     }
 </style>
 """, unsafe_allow_html=True)
 
-# BANNER TIÊU ĐỀ CHÍNH CỦA TRANG
+# BANNER TIÊU ĐỀ CHÍNH ÔM GỌN CHỮ
 st.markdown('<div class="main-banner-blue">Quản Lý và Cập Nhật Dữ Liệu Báo Cáo OGSM</div>', unsafe_allow_html=True)
 
 # Phân loại chuẩn 29 đơn vị UMP
@@ -142,7 +143,6 @@ try:
     with col_upload:
         st.markdown('<div class="subsection-header-blue">Bước 1: Chọn Khối Đơn Vị Báo Cáo</div>', unsafe_allow_html=True)
         
-        # Thẻ chọn Khối đơn vị trực quan
         selected_group = st.segmented_control(
             "Chọn Khối:",
             options=list(UNIT_GROUPS.keys()),
@@ -158,7 +158,6 @@ try:
         units_dict = UNIT_GROUPS[selected_group]
         unit_options = [f"{k} - {v}" for k, v in units_dict.items()]
         
-        # Ô chọn đơn vị thuộc Khối đang active
         selected_unit_label = st.selectbox(
             "Tên Đơn Vị Báo Cáo:",
             options=unit_options,
@@ -169,7 +168,6 @@ try:
 
         st.markdown("---")
         
-        # Khung tải file liên kết thời gian thực 100% với lựa chọn ở Bước 2
         uploaded_file = st.file_uploader(
             f"Chọn file Excel báo cáo (.xlsx) cho đơn vị [{selected_unit_label}]:",
             type=["xlsx"]
