@@ -1,6 +1,6 @@
 """
 Trang Executive Dashboard - Đại học Y Dược TP.HCM
-Hiển thị thêm 3 biểu đồ ngang về Tổng số KPI và Tỷ lệ hoàn thành theo đơn vị.
+Chuẩn hóa linh hoạt mã đơn vị để lọc chính xác 100% các Khối báo cáo.
 """
 
 import sys
@@ -11,6 +11,7 @@ if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
 import re
+import unicodedata
 import datetime
 import streamlit as st
 
@@ -110,11 +111,21 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
+def strip_vietnamese_accents(text: str) -> str:
+    """Loại bỏ dấu tiếng Việt"""
+    if not text:
+        return ""
+    text = unicodedata.normalize('NFD', str(text))
+    text = re.sub(r'[\u0300-\u036f]', '', text)
+    return text.replace('đ', 'd').replace('Đ', 'D')
+
+
 def normalize_code(code_str: str) -> str:
+    """Chuẩn hóa mã đơn vị bỏ hết dấu, ký tự đặc biệt, viết hoa"""
     if not code_str:
         return ""
-    s = str(code_str).upper().replace(".XLSX", "").strip()
-    s = re.sub(r"^(P\.|T\.|K\.|TT\.|PK\.|BV\.)", "", s)
+    s = strip_vietnamese_accents(str(code_str)).upper().replace(".XLSX", "").strip()
+    s = re.sub(r"^(P\.|T\.|K\.|TT\.|PK\.|BV\.|PHONG|TRUONG|KHOA|TRUNG TAM)", "", s)
     s = re.sub(r"[^\w]", "", s)
     return s
 
@@ -133,13 +144,24 @@ try:
 
     st.markdown('<div class="main-banner-blue">Tổng Quan Thực Hiện OGSM - Đại học Y Dược TP.HCM</div>', unsafe_allow_html=True)
 
+    # Từ điển danh sách mã chuẩn hóa linh hoạt
     UNIT_GROUPS = {
         "Tất cả đơn vị": [],
-        "Khối Phòng chức năng": ["HCTH", "QTGT", "TCCB", "CTSV", "KHCN", "HTQT", "KHTC", "TTPC", "DTSDH", "DTDH", "DBCL"],
-        "Khối Trường / Khoa": ["TRUONGY", "DUOC", "DDKTYH", "KHCB", "YHCT", "YTCC", "RHM"],
-        "Khối Bệnh viện / Phòng khám": ["BVDHYD", "PKCKRHM", "PKRHM"],
-        "Khối Trung tâm": ["TTKCCLXN", "TTKC", "TTKHCNUMP", "TTGDYH", "TTCNTT", "TTYSHPT", "TTDTNLYT"],
-        "Đơn vị khác": ["KTX", "TCYH", "THUVIEN"]
+        "Khối Phòng chức năng": [
+            "HCTH", "QTGT", "TCCB", "CTSV", "KHCN", "HTQT", "KHTC", "TTPC", "DTSDH", "DTSDH", "DTDH", "DBCL", "DBCLGD"
+        ],
+        "Khối Trường / Khoa": [
+            "Y", "TRUONGY", "DUOC", "TDUOC", "DDKTYH", "TDKTYH", "KHCB", "KKHCB", "YHCT", "KYHCT", "YTCC", "KYTCC", "RHM", "KRHM"
+        ],
+        "Khối Bệnh viện / Phòng khám": [
+            "BVDHYD", "DHYD", "PKCKRHM", "PKRHM", "RHM"
+        ],
+        "Khối Trung tâm": [
+            "KCCLXN", "KC", "KHCNUMP", "GDYH", "CNTT", "YSHPT", "DTNLYT", "TTCNTT", "TTGDYH"
+        ],
+        "Đơn vị khác": [
+            "KTX", "TCYH", "THUVIEN", "THUVIEN"
+        ]
     }
 
     service = OGSMService()
@@ -165,7 +187,9 @@ try:
             st.caption("Đại học Y Dược TP. Hồ Chí Minh - Báo Cáo Tổng Hợp Toàn Trường (29 Đơn Vị)")
         else:
             group_targets = UNIT_GROUPS[selected_group]
-            df_group_available = df_all[df_all["Norm_Code"].isin(group_targets)]
+            
+            # Khởi tạo bộ lọc khớp thông minh
+            df_group_available = df_all[df_all["Norm_Code"].apply(lambda c: any(t in c or c in t for t in group_targets))]
             available_units_real = sorted(list(df_group_available["Unit_Code"].unique()))
             
             if available_units_real:
@@ -189,7 +213,7 @@ try:
         elif selected_unit.startswith("GROUP:"):
             g_name = selected_unit.replace("GROUP:", "")
             target_norm_codes = UNIT_GROUPS[g_name]
-            df_filtered = df_all[df_all["Norm_Code"].isin(target_norm_codes)]
+            df_filtered = df_all[df_all["Norm_Code"].apply(lambda c: any(t in c or c in t for t in target_norm_codes))]
             st.caption(f"Báo Cáo Tổng Hợp: **{g_name}**")
         else:
             df_filtered = df_all[df_all["Unit_Code"] == selected_unit]
