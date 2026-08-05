@@ -1,5 +1,6 @@
 """
-Data Management Page with Dropdown Unit Selection & Dynamic Instructions.
+Trang Quan ly du lieu OGSM - Dai hoc Y Duoc TP.HCM
+Giao dien phan khoi don vi hai cap, khong emoji.
 """
 
 import sys
@@ -17,110 +18,140 @@ from logger import get_logger
 
 logger = get_logger()
 
-st.set_page_config(page_title="Quản Lý Dữ Liệu - OGSM Portal", layout="wide")
-st.title("📂 Quản Lý & Cập Nhật Dữ Liệu Báo Cáo OGSM")
+st.set_page_config(page_title="Quan Ly Du Lieu - OGSM Portal", layout="wide")
 
-# Danh sách chuẩn các Đơn vị thuộc UMP
-UMP_UNITS = [
-    "P.HCTH - Phòng Hành chính Tổng hợp",
-    "P.QTGT - Phòng Quản trị Gia tăng",
-    "P.KHTH - Phòng Kế hoạch Tổng hợp",
-    "P.TCCB - Phòng Tổ chức Cán bộ",
-    "P.CTSV - Phòng Công tác Sinh viên",
-    "P.KHCN - Phòng Khoa học Công nghệ",
-    "P.HTQT - Phòng Hợp tác Quốc tế",
-    "P.KHTC - Phòng Kế hoạch Tài chính",
-    "P.TTPC - Phòng Thanh tra Pháp chế",
-    "P.ĐTSĐH - Phòng Đào tạo Sau đại học",
-    "P.ĐTĐH - Phòng Đào tạo Đại học",
-    "P.ĐBCL - Phòng Đảm bảo Chất lượng",
-    "K.KHCB - Khoa Khoa học Cơ bản",
-    "K.Y TCC - Khoa Y tế Công cộng",
-    "K.RHM - Khoa Răng Hàm Mặt",
-    "K.YHCT - Khoa Y học Cổ truyền",
-    "T.DƯỢC - Khoa Dược",
-    "TRƯỜNG Y - Trường Y",
-    "TT.KCXN - Trung tâm Kiểm chuẩn Xét nghiệm",
-    "TT.KHCN UMP - Trung tâm KHCN UMP",
-    "TT.GDYH - Trung tâm Giáo dục Y học",
-    "TT.CNTT - Trung tâm Công nghệ Thông tin",
-    "TT.YSHPT - Trung tâm Y sinh học Phân tử",
-    "T.ĐĐ-KTYH - Khoa Điều dưỡng - Kỹ thuật Y học",
-    "TT.ĐTNLYT - Trung tâm Đào tạo Năng lực Y tế",
-    "BV.ĐHYD - Bệnh viện Đại học Y Dược",
-    "KTX - Ký túc xá",
-    "TV - Thư viện",
-    "PK.RHM - Phòng khám Răng Hàm Mặt",
-    "TCYH - Tạp chí Y học"
-]
+# CSS tuy chinh giao dien the chon khoi don vi (Hover/Active Highlight màu xanh)
+st.markdown("""
+<style>
+    /* CSS dinh dang danh sach chon don vi kieu the noi noi bat */
+    div[data-baseweb="select"] > div {
+        border-radius: 8px;
+        border: 1px solid #0066cc;
+    }
+    .stButton > button {
+        border-radius: 8px;
+        font-weight: bold;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+st.title("Quan Ly va Cap Nhat Du Lieu Bao Cao OGSM")
+
+# Phan loai 29 don vi theo khoi chuc nang
+UNIT_GROUPS = {
+    "Khoi Phong Ban": {
+        "P.HCTH": "Phong Hanh chinh Tong hop",
+        "P.QTGT": "Phong Quan tri Giao tai",
+        "P.TCCB": "Phong To chuc Can bo",
+        "P.CTSV": "Phong Cong tac Sinh vien",
+        "P.KHCN": "Phong Khoa hoc Cong nghe",
+        "P.HTQT": "Phong Hop tac Quoc te",
+        "P.KHTC": "Phong Ke hoach Tai chinh",
+        "P.TTPC": "Phong Thanh tra Phap che",
+        "P.ĐTSĐH": "Phong Dao tao Sau dai hoc",
+        "P.ĐTĐH": "Phong Dao tao Dai hoc",
+        "P.ĐBCL": "Phong Dam bao Chat luong Giao duc va Khao thi"
+    },
+    "Khoi Truong / Khoa": {
+        "TRƯỜNG Y": "Truong Y",
+        "T.DƯỢC": "Truong Duoc",
+        "T.ĐD-KTYH": "Truong Dieu duong Ky thuat Y hoc",
+        "K.KHCB": "Khoa Khoa hoc Co ban",
+        "K.YHCT": "Khoa Y hoc Co truyen",
+        "K.YTCC": "Khoa Y te Cong cong",
+        "K.RHM": "Khoa Rang Ham Mat"
+    },
+    "Khoi Benh vien / Phong kham": {
+        "BV ĐHYD": "Benh vien Dai hoc Y Duoc",
+        "PKCK RHM": "Phong kham Chuyen khoa Rang Ham Mat"
+    },
+    "Khoi Trung tam": {
+        "TT.KCCLXN": "Trung tam Kiem chuan Chat luong Xet nghiem",
+        "TT.KHCN UMP": "Trung tam Khoa hoc Cong nghe UMP",
+        "TT.GDYH": "Trung tam Giao duc Y hoc",
+        "TT.CNTT": "Trung tam Cong nghe Thong tin",
+        "TT.YSHPT": "Trung tam Y Sinh hoc Phan tu",
+        "TT.ĐTNLYT": "Trung tam Dao tao Nhan luc Y te theo nhu cau xa hoi"
+    },
+    "Don vi khac": {
+        "KTX": "Ky tuc xa",
+        "TCYH": "Tap chi Y hoc",
+        "THƯ VIỆN": "Thu vien"
+    }
+}
 
 try:
     service = OGSMService()
     
     st.markdown("---")
-    st.subheader("📤 Cập Nhật Báo Cáo Cho Đơn Vị")
+    st.subheader("Cap Nhat Bao Cao Cho Don Vi")
     
-    col_upload, col_guide = st.columns([1, 1])
+    col_upload, col_guide = st.columns([1.2, 0.8])
 
     with col_upload:
-        # Dropdown chọn Đơn vị thay vì gõ tay
-        selected_unit_raw = st.selectbox(
-            "📍 Chọn Đơn Vị Báo Cáo:",
-            options=UMP_UNITS,
-            index=0
-        )
+        st.write("**Buoc 1: Chon Khoi Don Vi**")
+        group_tabs = st.tabs(list(UNIT_GROUPS.keys()))
         
-        # Tách mã đơn vị (ví dụ: "P.HCTH - Phòng..." -> "HCTH")
-        unit_code_clean = selected_unit_raw.split(" - ")[0].replace("P.", "").replace("T.", "").replace("K.", "").replace("TT.", "").replace("BV.", "").strip()
+        selected_unit_code = None
+        
+        for i, (group_name, units_dict) in enumerate(UNIT_GROUPS.items()):
+            with group_tabs[i]:
+                st.write(f"**Buoc 2: Chon Don Vi thuoc {group_name}**")
+                unit_options = [f"{k} - {v}" for k, v in units_dict.items()]
+                selected_item = st.radio(
+                    "Danh sach don vi:",
+                    options=unit_options,
+                    key=f"radio_{i}",
+                    label_visibility="collapsed"
+                )
+                selected_unit_code = selected_item.split(" - ")[0]
 
+        st.markdown("---")
         uploaded_file = st.file_uploader(
-            "Chọn file Excel báo cáo (.xlsx) của đơn vị:",
+            f"Chon file Excel bao cao (.xlsx) cho don vi [{selected_unit_code}]:",
             type=["xlsx"]
         )
 
-        if st.button("🚀 Tải Lên & Cập Nhật Báo Cáo", type="primary"):
+        if st.button("Tai Len va Cap Nhat Bao Cao", type="primary"):
             if not uploaded_file:
-                st.error("Vui lòng chọn file Excel (.xlsx) báo cáo trước khi tải lên.")
+                st.error("Vui long chon file Excel (.xlsx) bao cao truoc khi tai len.")
             else:
-                with st.spinner(f"Đang ghi đè báo cáo cho đơn vị {unit_code_clean} lên OneDrive..."):
+                with st.spinner(f"Dang luu bao cao cho don vi {selected_unit_code} len OneDrive..."):
                     try:
                         file_bytes = uploaded_file.read()
-                        
-                        # Kiểm tra định dạng file
                         df_check = pd.read_excel(io.BytesIO(file_bytes), engine="openpyxl")
                         
-                        target_filename = f"P.{unit_code_clean}.xlsx"
+                        target_filename = f"{selected_unit_code}.xlsx"
                         success = service.upload_unit_file(target_filename, file_bytes)
                         
                         if success:
-                            st.success(f"🎉 Đã cập nhật thành công báo cáo cho đơn vị **{unit_code_clean}** (`{target_filename}`)!")
-                            st.info("💡 Bạn có thể quay lại mục **Dashboard** để xem các biểu đồ tiến độ vừa được tự động tính toán lại.")
+                            st.success(f"Da cap nhat thanh cong bao cao cho don vi {selected_unit_code}.")
                             st.cache_data.clear()
                         else:
-                            st.error("Không thể ghi đè file lên OneDrive. Vui lòng kiểm tra lại cấu hình kết nối.")
+                            st.error("Khong the ghi de file len OneDrive. Vui long kiem tra lai cau hinh ket noi.")
                     except Exception as ex:
-                        st.error(f"Lỗi đọc định dạng file Excel: {ex}")
+                        st.error(f"Loi doc dinh dang file Excel: {ex}")
 
     with col_guide:
         st.info("""
-        ### 📋 Hướng dẫn cập nhật định kỳ:
-        1. Sử dụng file Excel khung mẫu OGSM 2025–2029 của Nhà trường.
-        2. Cập nhật kết quả thực hiện vào cột **`Tỷ lệ đạt (%)`** (Trạng thái sẽ tự động được tính theo công thức sẵn trong file Excel).
-        3. Chọn đúng **Tên Đơn Vị** từ danh sách thả xuống và bấm nút **Tải Lên & Cập Nhật Báo Cáo**.
-        4. Hệ thống sẽ tự động tổng hợp vào báo cáo chung của Đại học Y Dược TP.HCM.
+        **Huong dan cap nhat dinh ky:**
+        1. Su dung file Excel khung mau OGSM 2025-2029 cua Nha truong.
+        2. Cap nhat ket qua thuc hien vao cot Tyle dat (%) (Trang thai se tu dong duoc tinh theo cong thuc san trong file Excel).
+        3. Chon dung Khoi Don Vi va Don Vi tu cac Tab phan cap, sau do bam Tai Len va Cap Nhat Bao Cao.
+        4. He thong se tu dong tong hop vao bao cao chung cua Dai hoc Y Duoc TP.HCM.
         """)
 
     st.markdown("---")
-    st.subheader("🔍 Xem Dữ Liệu Báo Cáo Đã Tải Lên")
+    st.subheader("Xem Du Lieu Bao Cao Da Tai Len")
 
     df_master = service.get_full_ogsm_data()
 
     if not df_master.empty:
         available_units = sorted(list(df_master["Unit_Code"].unique()))
-        selected_unit_view = st.selectbox("Chọn đơn vị để xem chi tiết dữ liệu:", ["Tất cả đơn vị"] + available_units)
+        selected_unit_view = st.selectbox("Chon don vi de xem chi tiet du lieu:", ["Tat ca don vi"] + available_units)
 
         df_display = df_master.copy()
-        if selected_unit_view != "Tất cả đơn vị":
+        if selected_unit_view != "Tat ca don vi":
             df_display = df_display[df_display["Unit_Code"] == selected_unit_view]
 
         st.dataframe(
@@ -132,7 +163,7 @@ try:
             height=400
         )
     else:
-        st.warning("Hiện chưa có dữ liệu đơn vị nào trên hệ thống.")
+        st.warning("Hien chua co du lieu don vi nao tren he thong.")
 
 except Exception as e:
-    st.error(f"Lỗi nạp trang Quản Lý Dữ Liệu: {e}")
+    st.error(f"Loi nap trang Quan Ly Du Lieu: {e}")
