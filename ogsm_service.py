@@ -1,49 +1,66 @@
 """
-OGSM Business Logic Service.
+OGSM Service - Quản lý nạp, tổng hợp và lưu trữ dữ liệu báo cáo OGSM.
 """
 
+import os
+import io
+from pathlib import Path
 import pandas as pd
-from typing import Optional, Dict, Any, List
-from excel_repository import ExcelOneDriveRepository
-from analytics_service import OGSMAnalyticsService
 from logger import get_logger
 
 logger = get_logger()
 
+# Đường dẫn thư mục lưu dữ liệu Excel
+BASE_DIR = Path(__file__).resolve().parent
+DATA_DIR = BASE_DIR / "DATA"
+
+# Tự động tạo thư mục DATA nếu chưa tồn tại
+if not DATA_DIR.exists():
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+
 
 class OGSMService:
+    def __init__(self, data_folder: Path = DATA_DIR):
+        self.data_folder = data_folder
 
-    def __init__(self, repo: Optional[ExcelOneDriveRepository] = None):
-        self.repo = repo or ExcelOneDriveRepository()
-
-    def get_full_ogsm_data(self) -> pd.DataFrame:
-        return self.repo.fetch_master_dataframe()
-
-    def get_available_units(self) -> List[str]:
-        df = self.get_full_ogsm_data()
-        if "Unit_Code" in df.columns:
-            return sorted(df["Unit_Code"].dropna().unique().tolist())
-        return []
-
-    def update_measure_actual(self, measure_id: str, new_actual: float, status: str) -> bool:
-        df_master = self.repo.fetch_master_dataframe()
-
-        mask = df_master["Measure_ID"] == measure_id
-        if not mask.any():
-            logger.error(f"Measure ID {measure_id} không tồn tại trong các file đơn vị.")
+    def upload_unit_file(self, filename: str, file_bytes: bytes) -> bool:
+        """
+        Lưu hoặc ghi đè file báo cáo Excel của đơn vị vào thư mục DATA.
+        """
+        try:
+            target_path = self.data_folder / filename
+            with open(target_path, "wb") as f:
+                f.write(file_bytes)
+            logger.info(f"Đã lưu thành công file {filename} vào {target_path}")
+            return True
+        except Exception as e:
+            logger.error(f"Lỗi khi lưu file {filename}: {e}")
             return False
 
-        source_file = df_master.loc[mask, "Source_File"].iloc[0]
-        df_unit = df_master[df_master["Source_File"] == source_file].copy()
+    def get_full_ogsm_data(self) -> pd.DataFrame:
+        """
+        Đọc tất cả các file Excel (.xlsx) trong thư mục DATA và gộp lại thành DataFrame tổng hợp.
+        """
+        all_dfs = []
+        if not self.data_folder.exists():
+            return pd.DataFrame()
 
-        unit_mask = df_unit["Measure_ID"] == measure_id
-        df_unit.loc[unit_mask, "Actual"] = new_actual
-        df_unit.loc[unit_mask, "Status"] = status
+        for file_path in self.data_folder.glob("*.xlsx"):
+            if file_path.name.startswith("~$"):
+                continue  # Bỏ qua file tạm của Excel
+            try:
+                df = pd.read_excel(file_path, engine="openpyxl")
+                unit_code = file_path.stem  # Lấy tên file làm Mã Đơn vị (ví dụ: BV ĐHYD, HCTH)
+                
+                # Đảm bảo có cột Unit_Code
+                if "Unit_Code" not in df.columns:
+                    df["Unit_Code"] = unit_code
+                    
+                all_dfs.append(df)
+            except Exception as e:
+                logger.error(f"Không thể đọc file {file_path.name}: {e}")
 
-        return self.repo.save_unit_dataframe(source_file, df_unit)
-
-    def get_dashboard_summary(self, unit_filter: Optional[str] = None) -> Dict[str, Any]:
-        df = self.get_full_ogsm_data()
-        if unit_filter and "Unit_Code" in df.columns:
-            df = df[df["Unit_Code"] == unit_filter]
-        return OGSMAnalyticsService.compute_summary_kpis(df)
+        if all_dfs:
+            master_df = pd.concat(all_dfs, ignore_index=True)
+            return master_df
+        return pd.DataFrame()
