@@ -1,6 +1,6 @@
 """
 Trang Executive Dashboard - Đại học Y Dược TP.HCM
-Khắc phục triệt để lỗi không khớp mã đơn vị giữa Khối và dữ liệu thực tế.
+Cập nhật hiển thị Biểu đồ Mục tiêu chiến lược (Objectives - O) cạnh Biểu đồ tròn.
 """
 
 import sys
@@ -124,7 +124,11 @@ try:
     from ogsm_service import OGSMService
     from analytics_service import OGSMAnalyticsService
     from metrics_cards import render_metrics_cards
-    from charts import create_status_donut_chart, create_stacked_kpi_by_unit_chart
+    from charts import (
+        create_status_donut_chart, 
+        create_objective_progress_chart, 
+        create_stacked_kpi_by_unit_chart
+    )
 
     st.markdown('<div class="main-banner-blue">Tổng Quan Thực Hiện OGSM - Đại học Y Dược TP.HCM</div>', unsafe_allow_html=True)
 
@@ -141,7 +145,6 @@ try:
     df_all = service.get_full_ogsm_data()
 
     if not df_all.empty:
-        # Tạo cột mã chuẩn hóa để so sánh chính xác
         df_all["Norm_Code"] = df_all["Unit_Code"].apply(normalize_code)
 
         st.markdown('<div class="subsection-header-blue">Chọn Khối Đơn Vị Báo Cáo</div>', unsafe_allow_html=True)
@@ -161,8 +164,6 @@ try:
             st.caption("Đại học Y Dược TP. Hồ Chí Minh - Báo Cáo Tổng Hợp Toàn Trường (29 Đơn Vị)")
         else:
             group_targets = UNIT_GROUPS[selected_group]
-            
-            # Lấy các mã thực tế khớp với khối này
             df_group_available = df_all[df_all["Norm_Code"].isin(group_targets)]
             available_units_real = sorted(list(df_group_available["Unit_Code"].unique()))
             
@@ -180,7 +181,7 @@ try:
             else:
                 selected_unit = f"GROUP:{selected_group}"
 
-        # Lọc dữ liệu theo lựa chọn
+        # Lọc dữ liệu theo đơn vị / khối
         df_filtered = df_all.copy()
         if selected_unit == "Tất Cả Đơn Vị (Toàn Trường)":
             pass
@@ -198,19 +199,27 @@ try:
 
         st.markdown("---")
 
-        col_left, col_right = st.columns([1, 1])
+        # Hàng 1: Biểu đồ tròn Trạng thái bên trái & Biểu đồ Objectives (O) bên phải
+        col_donut, col_obj = st.columns([0.8, 1.2])
 
-        with col_left:
+        with col_donut:
             df_status = OGSMAnalyticsService.get_status_distribution(df_filtered)
             fig_donut = create_status_donut_chart(df_status)
             st.plotly_chart(fig_donut, use_container_width=True)
 
-        with col_right:
-            fig_bar_all = create_stacked_kpi_by_unit_chart(df_filtered, current_year_only=False)
-            st.plotly_chart(fig_bar_all, use_container_width=True)
+        with col_obj:
+            fig_obj = create_objective_progress_chart(df_filtered)
+            st.plotly_chart(fig_obj, use_container_width=True)
 
         st.markdown("---")
 
+        # Hàng 2: Biểu đồ cơ cấu thực hiện KPI theo Đơn vị (2025-2029)
+        fig_bar_all = create_stacked_kpi_by_unit_chart(df_filtered, current_year_only=False)
+        st.plotly_chart(fig_bar_all, use_container_width=True)
+
+        st.markdown("---")
+
+        # Hàng 3: Biểu đồ tiến độ đến hạn năm hiện hành
         current_yr = datetime.datetime.now().year
         st.markdown(f'<div class="section-banner-blue">Thống Kê Tiến Độ Đến Hạn Năm Hiện Hành ({current_yr})</div>', unsafe_allow_html=True)
         
