@@ -1,6 +1,6 @@
 """
 Trang Quản lý dữ liệu OGSM - Đại học Y Dược TP.HCM
-Toàn bộ tiêu đề và tiêu đề con chuẩn chữ xanh nền trắng, hoàn toàn không sử dụng emoji/biểu tượng.
+Tiêu đề chữ xanh trên nền trắng phẳng, không có vạch viền xanh bên trái.
 """
 
 import sys
@@ -20,17 +20,15 @@ logger = get_logger()
 
 st.set_page_config(page_title="Quản Lý Dữ Liệu - OGSM Portal", layout="wide")
 
-# Bộ CSS chuẩn hóa tiêu đề chữ xanh trên nền trắng & Tab chữ trắng nền xanh
+# CSS loại bỏ border-left để xóa bỏ viền móc xanh
 st.markdown("""
 <style>
-    /* 1. Khung chứa danh sách Tab */
+    /* Tab chính: Chữ trắng nền xanh bo 4 góc */
     .stTabs [data-baseweb="tab-list"] {
         gap: 10px;
         background-color: transparent;
         padding: 6px 0px;
     }
-
-    /* 2. Thẻ Tab chính: Chữ trắng trên nền xanh, bo tròn 4 góc */
     .stTabs [data-baseweb="tab"] {
         height: 44px;
         background-color: #1877F2 !important;
@@ -43,8 +41,6 @@ st.markdown("""
         transition: all 0.25s ease-in-out;
         box-shadow: 0 2px 5px rgba(24, 119, 242, 0.2);
     }
-
-    /* 3. Hiệu ứng Hover con trỏ chuột vào Tab */
     .stTabs [data-baseweb="tab"]:hover {
         background-color: #166fe5 !important;
         color: #ffffff !important;
@@ -52,25 +48,23 @@ st.markdown("""
         box-shadow: 0 4px 12px rgba(22, 111, 229, 0.4);
         cursor: pointer;
     }
-
-    /* 4. Tab đang chọn (Active) */
     .stTabs [aria-selected="true"] {
         background-color: #0b51c5 !important;
         color: #ffffff !important;
         box-shadow: 0 4px 10px rgba(11, 81, 197, 0.5) !important;
     }
 
-    /* 5. TIÊU ĐỀ LỚN & TIÊU ĐỀ CON: Chữ xanh trên nền trắng nổi bật, bo góc */
+    /* TIÊU ĐỀ LỚN & TIÊU ĐỀ CON: Chữ xanh trên nền trắng, ĐÃ XÓA BỎ BORDER-LEFT */
     .section-header-blue {
         background-color: #ffffff;
         color: #1877F2;
         padding: 12px 18px;
         border-radius: 8px;
-        border-left: 5px solid #1877F2;
+        border: 1px solid #e4e6eb;
         font-size: 18px;
         font-weight: 700;
         margin: 14px 0px 14px 0px;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+        box-shadow: 0 2px 6px rgba(0,0,0,0.04);
     }
 
     .subsection-header-blue {
@@ -78,14 +72,13 @@ st.markdown("""
         color: #1877F2;
         padding: 10px 16px;
         border-radius: 8px;
-        border-left: 4px solid #1877F2;
+        border: 1px solid #e4e6eb;
         font-size: 15px;
         font-weight: 700;
         margin: 10px 0px 12px 0px;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.04);
+        box-shadow: 0 2px 5px rgba(0,0,0,0.03);
     }
 
-    /* Styling nút bấm Tải lên */
     .stButton > button {
         background-color: #1877F2;
         color: white;
@@ -104,7 +97,6 @@ st.markdown("""
 
 st.title("Quản Lý và Cập Nhật Dữ Liệu Báo Cáo OGSM")
 
-# Phân loại 29 đơn vị theo khối chức năng chuẩn UMP
 UNIT_GROUPS = {
     "Khối Phòng chức năng": {
         "P.HCTH": "Phòng Hành chính Tổng hợp",
@@ -151,7 +143,6 @@ try:
     service = OGSMService()
     
     st.markdown("---")
-    # Tiêu đề lớn: Chữ xanh trên nền trắng
     st.markdown('<div class="section-header-blue">Cập Nhật Báo Cáo Cho Đơn Vị</div>', unsafe_allow_html=True)
     
     col_upload, col_guide = st.columns([1.2, 0.8])
@@ -173,8 +164,6 @@ try:
                 )
 
         st.markdown("---")
-        
-        # Tiêu đề con: Xác nhận Đơn Vị Tải Lên Báo Cáo (Chữ xanh nền trắng, không emoji)
         st.markdown('<div class="subsection-header-blue">Xác nhận Đơn Vị Tải Lên Báo Cáo</div>', unsafe_allow_html=True)
         
         all_flatten_units = []
@@ -225,7 +214,6 @@ try:
         """)
 
     st.markdown("---")
-    # Tiêu đề lớn: Xem Dữ Liệu Báo Cáo Đã Tải Lên (Chữ xanh nền trắng)
     st.markdown('<div class="section-header-blue">Xem Dữ Liệu Báo Cáo Đã Tải Lên</div>', unsafe_allow_html=True)
 
     df_master = service.get_full_ogsm_data()
