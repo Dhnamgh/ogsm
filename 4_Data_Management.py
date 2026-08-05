@@ -1,6 +1,6 @@
 """
 Trang Quản lý dữ liệu OGSM - Đại học Y Dược TP.HCM
-Tiêu đề chữ xanh trên nền trắng phẳng, không có vạch viền xanh bên trái.
+Tên đơn vị tải lên liên kết tự động theo thời gian thực với Tab được chọn.
 """
 
 import sys
@@ -20,10 +20,9 @@ logger = get_logger()
 
 st.set_page_config(page_title="Quản Lý Dữ Liệu - OGSM Portal", layout="wide")
 
-# CSS loại bỏ border-left để xóa bỏ viền móc xanh
+# CSS Tiêu đề chữ xanh nền trắng & Tab chữ trắng nền xanh bo 4 góc
 st.markdown("""
 <style>
-    /* Tab chính: Chữ trắng nền xanh bo 4 góc */
     .stTabs [data-baseweb="tab-list"] {
         gap: 10px;
         background-color: transparent;
@@ -54,7 +53,6 @@ st.markdown("""
         box-shadow: 0 4px 10px rgba(11, 81, 197, 0.5) !important;
     }
 
-    /* TIÊU ĐỀ LỚN & TIÊU ĐỀ CON: Chữ xanh trên nền trắng, ĐÃ XÓA BỎ BORDER-LEFT */
     .section-header-blue {
         background-color: #ffffff;
         color: #1877F2;
@@ -139,6 +137,14 @@ UNIT_GROUPS = {
     }
 }
 
+# Khởi tạo giá trị mặc định cho Đơn vị được chọn trong Session State
+if "selected_unit_label" not in st.session_state:
+    st.session_state["selected_unit_label"] = "P.HCTH - Phòng Hành chính Tổng hợp"
+
+def update_selected_unit(key_name):
+    """Callback hàm tự động cập nhật đơn vị khi chọn thay đổi ở bất kỳ Tab nào"""
+    st.session_state["selected_unit_label"] = st.session_state[key_name]
+
 try:
     service = OGSMService()
     
@@ -157,36 +163,30 @@ try:
                 st.markdown(f'<div class="subsection-header-blue">Bước 2: Danh sách Đơn vị thuộc [{group_name}]</div>', unsafe_allow_html=True)
                 
                 unit_options = [f"{k} - {v}" for k, v in units_dict.items()]
+                
+                selectbox_key = f"select_tab_unit_{i}"
                 st.selectbox(
                     "Tên Đơn Vị Báo Cáo:",
                     options=unit_options,
-                    key=f"select_tab_unit_{i}"
+                    key=selectbox_key,
+                    on_change=update_selected_unit,
+                    args=(selectbox_key,)
                 )
 
         st.markdown("---")
-        st.markdown('<div class="subsection-header-blue">Xác nhận Đơn Vị Tải Lên Báo Cáo</div>', unsafe_allow_html=True)
         
-        all_flatten_units = []
-        for g_units in UNIT_GROUPS.values():
-            for k, v in g_units.items():
-                all_flatten_units.append(f"{k} - {v}")
-                
-        final_selected_unit = st.selectbox(
-            "Đơn Vị Được Chọn:",
-            options=all_flatten_units,
-            key="final_confirm_unit_select"
-        )
-        
-        selected_unit_code = final_selected_unit.split(" - ")[0]
+        # Tự động lấy Đơn vị đang được chọn trực tiếp
+        active_unit_label = st.session_state["selected_unit_label"]
+        selected_unit_code = active_unit_label.split(" - ")[0]
 
         uploaded_file = st.file_uploader(
-            f"Chọn file Excel báo cáo (.xlsx) cho đơn vị [{final_selected_unit}]:",
+            f"Chọn file Excel báo cáo (.xlsx) cho đơn vị [{active_unit_label}]:",
             type=["xlsx"]
         )
 
         if st.button("Tải Lên và Cập Nhật Báo Cáo", type="primary"):
             if not uploaded_file:
-                st.error("Vui lòng chọn file Excel (.xlsx) báo cáo trước khi tải lên.")
+                st.error(f"Vui lòng chọn file Excel (.xlsx) báo cáo cho đơn vị [{active_unit_label}] trước khi tải lên.")
             else:
                 with st.spinner(f"Đang lưu báo cáo cho đơn vị {selected_unit_code} lên OneDrive..."):
                     try:
@@ -197,7 +197,7 @@ try:
                         success = service.upload_unit_file(target_filename, file_bytes)
                         
                         if success:
-                            st.success(f"Đã cập nhật thành công báo cáo cho đơn vị **{final_selected_unit}**.")
+                            st.success(f"Đã cập nhật thành công báo cáo cho đơn vị **{active_unit_label}**.")
                             st.cache_data.clear()
                         else:
                             st.error("Không thể ghi đè file lên OneDrive. Vui lòng kiểm tra lại cấu hình kết nối.")
@@ -209,8 +209,8 @@ try:
         **Hướng dẫn cập nhật định kỳ:**
         1. Sử dụng file Excel khung mẫu OGSM 2025–2029 của Nhà trường.
         2. Cập nhật kết quả thực hiện vào cột **`Tỷ lệ đạt (%)`** (Trạng thái sẽ tự động được tính theo công thức sẵn trong file Excel).
-        3. Chọn đúng **Khối Đơn Vị** từ các Tab và chọn **Tên Đơn Vị**, sau đó bấm **Tải Lên và Cập Nhật Báo Cáo**.
-        4. Hệ thống sẽ tự động tổng hợp vào báo cáo chung của Đại học Y Dược TP.HCM.
+        3. Chọn đúng **Khối Đơn Vị** từ các Tab và chọn **Tên Đơn Vị**, hệ thống sẽ tự động liên kết tên đơn vị vào khung tải file bên dưới.
+        4. Bấm **Tải Lên và Cập Nhật Báo Cáo** để hoàn tất.
         """)
 
     st.markdown("---")
