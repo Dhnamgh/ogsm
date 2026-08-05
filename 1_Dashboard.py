@@ -1,6 +1,6 @@
 """
 Trang Executive Dashboard - Đại học Y Dược TP.HCM
-Hỗ trợ hiển thị tổng quan và cho phép tải dữ liệu trực tiếp khi hệ thống bị rỗng.
+Khôi phục gọi dữ liệu gốc từ OneDrive qua OGSMService / ExcelRepository.
 """
 
 import sys
@@ -16,7 +16,7 @@ import streamlit as st
 
 st.set_page_config(page_title="Dashboard OGSM - Đại học Y Dược TP.HCM", layout="wide")
 
-# Style CSS
+# CSS giao diện
 st.markdown("""
 <style>
     [data-testid="stSidebarNav"] ul li a svg { display: none !important; }
@@ -96,6 +96,7 @@ st.markdown("""
 
 
 def normalize_code(code_str: str) -> str:
+    """Rút gọn mã đơn vị để khớp dữ liệu OneDrive chính xác tuyệt đối."""
     if not code_str:
         return ""
     s = str(code_str).upper().replace(".XLSX", "").strip()
@@ -111,9 +112,7 @@ try:
     from charts import (
         create_status_donut_chart, 
         create_objective_progress_chart, 
-        create_stacked_kpi_by_unit_chart,
-        create_total_kpis_by_unit_chart,
-        create_completion_rate_by_unit_chart
+        create_stacked_kpi_by_unit_chart
     )
 
     st.markdown('<div class="main-banner-blue">Tổng Quan Thực Hiện OGSM - Đại học Y Dược TP.HCM</div>', unsafe_allow_html=True)
@@ -127,11 +126,16 @@ try:
         "Đơn vị khác": ["KTX", "TCYH", "THUVIEN"]
     }
 
+    # Nạp dữ liệu từ OGSMService
     service = OGSMService()
     df_all = service.get_full_ogsm_data()
 
-    if not df_all.empty:
-        df_all["Norm_Code"] = df_all["Unit_Code"].apply(normalize_code)
+    if df_all is not None and not df_all.empty:
+        # Tạo cột mã chuẩn hóa để so sánh chính xác với khối
+        if "Unit_Code" in df_all.columns:
+            df_all["Norm_Code"] = df_all["Unit_Code"].apply(normalize_code)
+        else:
+            df_all["Norm_Code"] = ""
 
         st.markdown('<div class="subsection-header-blue">Chọn Khối Đơn Vị Báo Cáo</div>', unsafe_allow_html=True)
         
@@ -147,11 +151,11 @@ try:
 
         if selected_group == "Tất cả đơn vị":
             selected_unit = "Tất Cả Đơn Vị (Toàn Trường)"
-            st.caption("Đại học Y Dược TP. Hồ Chí Minh - Báo Cáo Tổng Hợp Toàn Trường (29 Đơn Vị)")
+            st.caption("Đại học Y Dược TP. Hồ Chí Minh - Báo Cáo Tổng Hợp Toàn Trường")
         else:
             group_targets = UNIT_GROUPS[selected_group]
             df_group_available = df_all[df_all["Norm_Code"].isin(group_targets)]
-            available_units_real = sorted(list(df_group_available["Unit_Code"].unique()))
+            available_units_real = sorted(list(df_group_available["Unit_Code"].unique())) if "Unit_Code" in df_group_available.columns else []
             
             if available_units_real:
                 sub_selected = st.radio(
@@ -167,6 +171,7 @@ try:
             else:
                 selected_unit = f"GROUP:{selected_group}"
 
+        # Lọc dữ liệu
         df_filtered = df_all.copy()
         if selected_unit == "Tất Cả Đơn Vị (Toàn Trường)":
             pass
@@ -179,57 +184,41 @@ try:
             df_filtered = df_all[df_all["Unit_Code"] == selected_unit]
             st.caption(f"Báo Cáo Tiến Độ Đơn Vị: **{selected_unit}**")
 
+        # Hiển thị số liệu tổng quan
         kpis = OGSMAnalyticsService.compute_summary_kpis(df_filtered)
         render_metrics_cards(kpis)
 
         st.markdown("---")
 
-        col_donut, col_obj = st.columns([0.8, 1.2])
-        with col_donut:
+        # Hiển thị biểu đồ trạng thái và biểu đồ Objectives (O)
+        col_left, col_right = st.columns([0.8, 1.2])
+
+        with col_left:
             df_status = OGSMAnalyticsService.get_status_distribution(df_filtered)
             fig_donut = create_status_donut_chart(df_status)
             st.plotly_chart(fig_donut, use_container_width=True)
 
-        with col_obj:
+        with col_right:
             fig_obj = create_objective_progress_chart(df_filtered)
             st.plotly_chart(fig_obj, use_container_width=True)
 
         st.markdown("---")
 
+        # Biểu đồ cơ cấu thực hiện giai đoạn 2025-2029
         fig_bar_all = create_stacked_kpi_by_unit_chart(df_filtered, current_year_only=False)
         st.plotly_chart(fig_bar_all, use_container_width=True)
 
         st.markdown("---")
 
+        # Biểu đồ tiến độ đến hạn năm hiện hành
         current_yr = datetime.datetime.now().year
+        st.markdown(f'<div class="section-banner-blue">Thống Kê Tiến Độ Đến Hạn Năm Hiện Hành ({current_yr})</div>', unsafe_allow_html=True)
+        
         fig_bar_current = create_stacked_kpi_by_unit_chart(df_filtered, current_year_only=True)
         st.plotly_chart(fig_bar_current, use_container_width=True)
 
-        st.markdown("---")
-
-        st.markdown('<div class="section-banner-blue">Thống Kê Chi Tiết Số Lượng & Tỷ Lệ Hoàn Thành Theo Đơn Vị</div>', unsafe_allow_html=True)
-
-        fig_total_kpis = create_total_kpis_by_unit_chart(df_filtered)
-        st.plotly_chart(fig_total_kpis, use_container_width=True)
-
-        st.markdown("---")
-
-        fig_rate_current = create_completion_rate_by_unit_chart(df_filtered, current_year_only=True)
-        st.plotly_chart(fig_rate_current, use_container_width=True)
-
-        st.markdown("---")
-
-        fig_rate_all = create_completion_rate_by_unit_chart(df_filtered, current_year_only=False)
-        st.plotly_chart(fig_rate_all, use_container_width=True)
-
     else:
-        st.info("💡 Chưa có tệp dữ liệu nào trong bộ nhớ tạm của server. Thầy vui lòng tải nhanh các file Excel báo cáo dưới đây:")
-        uploaded_files = st.file_uploader("Chọn một hoặc nhiều file Excel (.xlsx) để nạp vào hệ thống:", type=["xlsx"], accept_multiple_files=True)
-        if uploaded_files:
-            for file in uploaded_files:
-                service.upload_unit_file(file.name, file.getvalue())
-            st.success("Đã nạp dữ liệu thành công!")
-            st.rerun()
+        st.warning("Không tìm thấy file dữ liệu đơn vị nào từ OneDrive.")
 
 except Exception as e:
     st.error(f"Lỗi nạp trang Dashboard: {e}")
