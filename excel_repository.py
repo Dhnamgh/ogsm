@@ -1,6 +1,5 @@
 """
-OpenPyXL and Pandas Excel Repository handling OGSM Matrix Structure.
-Intelligently maps UMP Standard Objectives (O1-O5) and exactly 15 Goals (1.1-5.3).
+OpenPyXL and Pandas Excel Repository matching official 29 UMP Units.
 """
 
 import io
@@ -14,7 +13,6 @@ from config import load_config
 
 logger = get_logger()
 
-
 class ExcelOneDriveRepository(BaseOGSMRepository):
 
     REQUIRED_COLUMNS = [
@@ -27,6 +25,22 @@ class ExcelOneDriveRepository(BaseOGSMRepository):
         self.graph_client = graph_client or MicrosoftGraphClient()
         self.config = load_config()
 
+    def _clean_unit_code(self, file_name: str) -> str:
+        """Chuẩn hóa tên file thành đúng Mã đơn vị trong bảng 29 đơn vị."""
+        base_name = os.path.splitext(file_name)[0].strip()
+        
+        # Bảng ánh xạ linh hoạt tên file cũ sang mã đơn vị chuẩn
+        mapping = {
+            "P.QTGT": "P.QTGT", "P.QT": "P.QTGT",
+            "PK.RHM": "PKCK RHM", "PKCK RHM": "PKCK RHM",
+            "T.DƯỢC": "T.DƯỢC", "T.DUOC": "T.DƯỢC", "K.DUOC": "T.DƯỢC",
+            "TT.KCXN": "TT.KCCLXN", "TT.KCCLXN": "TT.KCCLXN",
+            "THƯ VIỆN": "THƯ VIỆN", "TV": "THƯ VIỆN",
+            "BV.ĐHYD": "BV ĐHYD", "BV ĐHYD": "BV ĐHYD"
+        }
+        
+        return mapping.get(base_name, base_name)
+
     def _get_objective_id(self, obj_title: str) -> str:
         obj_lower = str(obj_title).lower()
         if "giáo dục" in obj_lower: return "O1"
@@ -37,34 +51,22 @@ class ExcelOneDriveRepository(BaseOGSMRepository):
         return "O1"
 
     def _get_goal_id_by_text(self, text: str) -> str:
-        """Map nội dung text về chuẩn 15 mã Goal ID của UMP."""
         t = text.lower()
-        
-        # O1 Goals
         if "kiểm định" in t or "1.1" in t: return "1.1"
         if "đối sánh" in t or "1.2" in t: return "1.2"
         if "chương trình quốc tế" in t or "trao đổi sinh viên" in t or "1.3" in t: return "1.3"
-        
-        # O2 Goals
         if "nhóm nghiên cứu mạnh" in t or "2.1" in t: return "2.1"
         if "bài báo quốc tế" in t or "2.2" in t: return "2.2"
         if "chuyển giao kỹ thuật" in t or "tnhh 1 thành viên" in t or "2.3" in t: return "2.3"
-        
-        # O3 Goals
         if "kiểu mẫu" in t or "3.1" in t: return "3.1"
         if "đào tạo liên tục" in t or "3.2" in t: return "3.2"
         if "một cổng" in t or "3.3" in t: return "3.3"
-        
-        # O4 Goals
         if "20% số học phần" in t or "4.1" in t: return "4.1"
         if "50 đề tài" in t or "4.2" in t: return "4.2"
         if "hành chính và quản trị" in t or "4.3" in t: return "4.3"
-        
-        # O5 Goals
         if "nguồn lực tài chính" in t or "10%/ năm" in t or "5.1" in t: return "5.1"
         if "văn hoá ump" in t or "5.2" in t: return "5.2"
         if "erp" in t or "chuyển đổi số" in t or "5.3" in t: return "5.3"
-        
         return "OTHER_GOAL"
 
     def _transform_custom_excel(self, df: pd.DataFrame, unit_code: str) -> pd.DataFrame:
@@ -79,21 +81,11 @@ class ExcelOneDriveRepository(BaseOGSMRepository):
             obj_title = str(row.get("Objects", "")).strip() if pd.notna(row.get("Objects")) else "Mục tiêu UMP"
             obj_id = self._get_objective_id(obj_title)
 
-            # Lấy Goal UMP & Map về ID chuẩn
             goal_ump = str(row.get("Goals UMP", "")).strip() if pd.notna(row.get("Goals UMP")) else ""
             goal_desc = goal_ump if goal_ump and goal_ump != "nan" else obj_title
-            
             strat_code = self._get_goal_id_by_text(goal_desc)
 
-            # Lấy Goal riêng của Đơn vị
-            goal_unit = str(row.get(f"Goals {unit_code}", "")).strip() if pd.notna(row.get(f"Goals {unit_code}")) else ""
-            if not goal_unit or goal_unit == "nan":
-                goal_cols = [c for c in df.columns if "goals" in c.lower() and c.lower() != "goals ump"]
-                if goal_cols and pd.notna(row.get(goal_cols[0])):
-                    goal_unit = str(row.get(goal_cols[0])).strip()
-
-            strat_id = f"S_{strat_code}"
-            strat_desc = goal_unit if goal_unit and goal_unit != "nan" else goal_desc
+            target_yr = row.get("Năm đích", 2029)
 
             stt = str(row.get("STT", idx + 1)).strip()
             status = str(row.get("Trạng thái", "In Progress")).strip() if pd.notna(row.get("Trạng thái")) else "In Progress"
@@ -116,15 +108,16 @@ class ExcelOneDriveRepository(BaseOGSMRepository):
                 "Objective_Title": obj_title,
                 "Goal_ID": f"G_{strat_code}",
                 "Goal_Desc": goal_desc,
-                "Strategy_ID": strat_id,
-                "Strategy_Desc": strat_desc,
+                "Strategy_ID": f"S_{strat_code}",
+                "Strategy_Desc": goal_desc,
                 "Measure_ID": f"{unit_code}_M{stt}",
                 "Measure_Desc": measure_desc,
                 "Unit": "%",
                 "Target": target_val,
                 "Actual": actual_val,
                 "Owner": unit_code,
-                "Status": status if status != "nan" else "In Progress"
+                "Status": status if status != "nan" else "In Progress",
+                "Target_Year": target_yr if pd.notna(target_yr) else 2029
             })
 
         return pd.DataFrame(rows)
@@ -133,13 +126,13 @@ class ExcelOneDriveRepository(BaseOGSMRepository):
         data_folder_id = self.config.onedrive.data_folder_id
         files = self.graph_client.list_files_in_folder_id(data_folder_id)
         if not files:
-            return pd.DataFrame(columns=self.REQUIRED_COLUMNS + ["Unit_Code", "Source_File"])
+            return pd.DataFrame(columns=self.REQUIRED_COLUMNS + ["Unit_Code", "Source_File", "Target_Year"])
 
         aggregated_dfs: List[pd.DataFrame] = []
 
         for f in files:
             file_name = f["name"]
-            unit_code = os.path.splitext(file_name)[0].replace("P.", "").replace("pKHTH", "KHTH")
+            unit_code = self._clean_unit_code(file_name)
 
             try:
                 file_bytes = self.graph_client.download_file_by_folder_id(data_folder_id, file_name)
@@ -168,13 +161,13 @@ class ExcelOneDriveRepository(BaseOGSMRepository):
                 logger.error(f"Lỗi đọc file {file_name}: {e}")
 
         if not aggregated_dfs:
-            return pd.DataFrame(columns=self.REQUIRED_COLUMNS + ["Unit_Code", "Source_File"])
+            return pd.DataFrame(columns=self.REQUIRED_COLUMNS + ["Unit_Code", "Source_File", "Target_Year"])
 
         return pd.concat(aggregated_dfs, ignore_index=True)
 
     def save_unit_dataframe(self, unit_file_name: str, df_unit: pd.DataFrame) -> bool:
         data_folder_id = self.config.onedrive.data_folder_id
-        clean_df = df_unit.drop(columns=["Unit_Code", "Source_File"], errors="ignore")
+        clean_df = df_unit.drop(columns=["Unit_Code", "Source_File", "Target_Year"], errors="ignore")
 
         buffer = io.BytesIO()
         with pd.ExcelWriter(buffer, engine="xlsxwriter") as writer:
