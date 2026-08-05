@@ -1,6 +1,6 @@
 """
 Trang Executive Dashboard - Đại học Y Dược TP.HCM
-Khắc phục lỗi không khớp mã đơn vị giữa OneDrive và danh sách Khối.
+Hiển thị thêm 3 biểu đồ ngang về Tổng số KPI và Tỷ lệ hoàn thành theo đơn vị.
 """
 
 import sys
@@ -10,6 +10,7 @@ ROOT_DIR = Path(__file__).resolve().parent
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
+import re
 import datetime
 import streamlit as st
 
@@ -18,12 +19,12 @@ st.set_page_config(page_title="Dashboard OGSM - Đại học Y Dược TP.HCM", 
 # CSS giao diện
 st.markdown("""
 <style>
-    /* 1. LOẠI BỎ HOÀN TOÀN BIỂU TƯỢNG ICON Ở MENU SIDEBAR KHUNG TRÁI */
+    /* LOẠI BỎ ICON Ở MENU SIDEBAR KHUNG TRÁI */
     [data-testid="stSidebarNav"] ul li a svg {
         display: none !important;
     }
     
-    /* 2. TÙY CHỈNH MENU SIDEBAR KHUNG TRÁI */
+    /* MENU SIDEBAR KHUNG TRÁI */
     [data-testid="stSidebarNav"] ul li a {
         border-radius: 8px !important;
         padding: 10px 14px !important;
@@ -44,7 +45,7 @@ st.markdown("""
         box-shadow: 0 3px 8px rgba(24, 119, 242, 0.35) !important;
     }
 
-    /* 3. STYLE BANNER TIÊU ĐỀ ÔM SÁT CHỮ */
+    /* BANNER TIÊU ĐỀ ÔM SÁT CHỮ */
     .main-banner-blue {
         display: inline-block;
         background: #1877F2;
@@ -81,7 +82,7 @@ st.markdown("""
         box-shadow: 0 2px 4px rgba(0,0,0,0.03);
     }
 
-    /* 4. NÚT CHỌN KHỐI ĐƠN VỊ */
+    /* NÚT CHỌN KHỐI ĐƠN VỊ */
     div[data-testid="stRadio"] > div {
         background-color: #f0f2f5;
         padding: 6px;
@@ -108,29 +109,44 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+
+def normalize_code(code_str: str) -> str:
+    if not code_str:
+        return ""
+    s = str(code_str).upper().replace(".XLSX", "").strip()
+    s = re.sub(r"^(P\.|T\.|K\.|TT\.|PK\.|BV\.)", "", s)
+    s = re.sub(r"[^\w]", "", s)
+    return s
+
+
 try:
     from ogsm_service import OGSMService
     from analytics_service import OGSMAnalyticsService
     from metrics_cards import render_metrics_cards
-    from charts import create_status_donut_chart, create_stacked_kpi_by_unit_chart
+    from charts import (
+        create_status_donut_chart, 
+        create_objective_progress_chart, 
+        create_stacked_kpi_by_unit_chart,
+        create_total_kpis_by_unit_chart,
+        create_completion_rate_by_unit_chart
+    )
 
     st.markdown('<div class="main-banner-blue">Tổng Quan Thực Hiện OGSM - Đại học Y Dược TP.HCM</div>', unsafe_allow_html=True)
 
     UNIT_GROUPS = {
         "Tất cả đơn vị": [],
-        "Khối Phòng chức năng": ["P.HCTH", "P.QTGT", "P.TCCB", "P.CTSV", "P.KHCN", "P.HTQT", "P.KHTC", "P.TTPC", "P.ĐTSĐH", "P.ĐTĐH", "P.ĐBCL"],
-        "Khối Trường / Khoa": ["TRƯỜNG Y", "T.DƯỢC", "T.ĐD-KTYH", "K.KHCB", "K.YHCT", "K.YTCC", "K.RHM"],
-        "Khối Bệnh viện / Phòng khám": ["BV ĐHYD", "PKCK RHM"],
-        "Khối Trung tâm": ["TT.KCCLXN", "TT.KHCN UMP", "TT.GDYH", "TT.CNTT", "TT.YSHPT", "TT.ĐTNLYT"],
-        "Đơn vị khác": ["KTX", "TCYH", "THƯ VIỆN"]
+        "Khối Phòng chức năng": ["HCTH", "QTGT", "TCCB", "CTSV", "KHCN", "HTQT", "KHTC", "TTPC", "DTSDH", "DTDH", "DBCL"],
+        "Khối Trường / Khoa": ["TRUONGY", "DUOC", "DDKTYH", "KHCB", "YHCT", "YTCC", "RHM"],
+        "Khối Bệnh viện / Phòng khám": ["BVDHYD", "PKCKRHM", "PKRHM"],
+        "Khối Trung tâm": ["TTKCCLXN", "TTKC", "TTKHCNUMP", "TTGDYH", "TTCNTT", "TTYSHPT", "TTDTNLYT"],
+        "Đơn vị khác": ["KTX", "TCYH", "THUVIEN"]
     }
 
     service = OGSMService()
     df_all = service.get_full_ogsm_data()
 
     if not df_all.empty:
-        # Chuẩn hóa cột Unit_Code để so sánh chính xác tuyệt đối
-        df_all["Clean_Code"] = df_all["Unit_Code"].astype(str).str.replace(".xlsx", "", regex=False).str.strip()
+        df_all["Norm_Code"] = df_all["Unit_Code"].apply(normalize_code)
 
         st.markdown('<div class="subsection-header-blue">Chọn Khối Đơn Vị Báo Cáo</div>', unsafe_allow_html=True)
         
@@ -148,16 +164,14 @@ try:
             selected_unit = "Tất Cả Đơn Vị (Toàn Trường)"
             st.caption("Đại học Y Dược TP. Hồ Chí Minh - Báo Cáo Tổng Hợp Toàn Trường (29 Đơn Vị)")
         else:
-            group_units = UNIT_GROUPS[selected_group]
+            group_targets = UNIT_GROUPS[selected_group]
+            df_group_available = df_all[df_all["Norm_Code"].isin(group_targets)]
+            available_units_real = sorted(list(df_group_available["Unit_Code"].unique()))
             
-            # Lấy tất cả mã đang có trong dữ liệu
-            existing_codes = set(df_all["Clean_Code"].unique()).union(set(df_all["Unit_Code"].unique()))
-            available_in_group = [u for u in group_units if u in existing_codes]
-            
-            if available_in_group:
+            if available_units_real:
                 sub_selected = st.radio(
                     f"Chọn đơn vị thuộc [{selected_group}]:",
-                    options=[f"Tất cả {selected_group}"] + available_in_group,
+                    options=[f"Tất cả {selected_group}"] + available_units_real,
                     horizontal=True,
                     key="dash_sub_unit_radio"
                 )
@@ -166,24 +180,19 @@ try:
                 else:
                     selected_unit = f"GROUP:{selected_group}"
             else:
-                # Trường hợp khớp toàn bộ khối nếu dữ liệu mã có chênh lệch viết hoa/thường
                 selected_unit = f"GROUP:{selected_group}"
 
-        # Lọc dữ liệu
+        # Lọc dữ liệu theo lựa chọn
         df_filtered = df_all.copy()
         if selected_unit == "Tất Cả Đơn Vị (Toàn Trường)":
             pass
         elif selected_unit.startswith("GROUP:"):
             g_name = selected_unit.replace("GROUP:", "")
-            target_codes = UNIT_GROUPS[g_name]
-            df_filtered = df_all[
-                df_all["Clean_Code"].isin(target_codes) | df_all["Unit_Code"].isin(target_codes)
-            ]
+            target_norm_codes = UNIT_GROUPS[g_name]
+            df_filtered = df_all[df_all["Norm_Code"].isin(target_norm_codes)]
             st.caption(f"Báo Cáo Tổng Hợp: **{g_name}**")
         else:
-            df_filtered = df_all[
-                (df_all["Clean_Code"] == selected_unit) | (df_all["Unit_Code"] == selected_unit)
-            ]
+            df_filtered = df_all[df_all["Unit_Code"] == selected_unit]
             st.caption(f"Báo Cáo Tiến Độ Đơn Vị: **{selected_unit}**")
 
         kpis = OGSMAnalyticsService.compute_summary_kpis(df_filtered)
@@ -191,24 +200,50 @@ try:
 
         st.markdown("---")
 
-        col_left, col_right = st.columns([1, 1])
-
-        with col_left:
+        # 1. Biểu đồ tròn Trạng thái & Biểu đồ Objectives (O)
+        col_donut, col_obj = st.columns([0.8, 1.2])
+        with col_donut:
             df_status = OGSMAnalyticsService.get_status_distribution(df_filtered)
             fig_donut = create_status_donut_chart(df_status)
             st.plotly_chart(fig_donut, use_container_width=True)
 
-        with col_right:
-            fig_bar_all = create_stacked_kpi_by_unit_chart(df_filtered, current_year_only=False)
-            st.plotly_chart(fig_bar_all, use_container_width=True)
+        with col_obj:
+            fig_obj = create_objective_progress_chart(df_filtered)
+            st.plotly_chart(fig_obj, use_container_width=True)
 
         st.markdown("---")
 
+        # 2. Biểu đồ Cơ cấu thực hiện KPI giai đoạn 2025-2030 theo đơn vị
+        fig_bar_all = create_stacked_kpi_by_unit_chart(df_filtered, current_year_only=False)
+        st.plotly_chart(fig_bar_all, use_container_width=True)
+
+        st.markdown("---")
+
+        # 3. Biểu đồ Tiến độ thực hiện KPI đến hạn năm hiện hành
         current_yr = datetime.datetime.now().year
-        st.markdown(f'<div class="section-banner-blue">Thống Kê Tiến Độ Đến Hạn Năm Hiện Hành ({current_yr})</div>', unsafe_allow_html=True)
-        
         fig_bar_current = create_stacked_kpi_by_unit_chart(df_filtered, current_year_only=True)
         st.plotly_chart(fig_bar_current, use_container_width=True)
+
+        st.markdown("---")
+
+        # 4. THÊM 3 BIỂU ĐỒ NGANG THEO ĐƠN VỊ
+        st.markdown('<div class="section-banner-blue">Thống Kê Chi Tiết Số Lượng & Tỷ Lệ Hoàn Thành Theo Đơn Vị</div>', unsafe_allow_html=True)
+
+        # Biểu đồ 4.1: Tổng số KPI theo đơn vị
+        fig_total_kpis = create_total_kpis_by_unit_chart(df_filtered)
+        st.plotly_chart(fig_total_kpis, use_container_width=True)
+
+        st.markdown("---")
+
+        # Biểu đồ 4.2: Tỷ lệ hoàn thành theo đơn vị năm hiện hành
+        fig_rate_current = create_completion_rate_by_unit_chart(df_filtered, current_year_only=True)
+        st.plotly_chart(fig_rate_current, use_container_width=True)
+
+        st.markdown("---")
+
+        # Biểu đồ 4.3: Tỷ lệ hoàn thành theo đơn vị cả giai đoạn 2025–2030
+        fig_rate_all = create_completion_rate_by_unit_chart(df_filtered, current_year_only=False)
+        st.plotly_chart(fig_rate_all, use_container_width=True)
 
     else:
         st.warning("Không tìm thấy file dữ liệu đơn vị nào trong thư mục DATA trên OneDrive.")
