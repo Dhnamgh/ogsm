@@ -1,6 +1,6 @@
 """
 Trang Executive Dashboard - Đại học Y Dược TP.HCM
-Sử dụng bộ ánh xạ CỐ ĐỊNH (Exact Mapping) để phân loại chuẩn xác 100% đơn vị vào đúng khối.
+Sử dụng bộ ánh xạ CỐ ĐỊNH CHUẨN XÁC theo danh sách đơn vị thực tế.
 """
 
 import sys
@@ -97,31 +97,32 @@ st.markdown("""
 
 def get_unit_group_exact(unit_code: str) -> str:
     """
-    Phân loại chính xác 100% từng đơn vị vào đúng 1 Khối duy nhất dựa trên tên đơn vị / tên file.
+    Phân loại chính xác 100% theo mã đơn vị / tên file thực tế
     """
     u = str(unit_code).upper().strip()
 
     # 1. Khối Bệnh viện / Phòng khám
-    if any(k in u for k in ["BV", "BVDHYD", "PKCK RHM", "PKRHM", "PHONG KHAM"]):
-        return "Khối Bệnh viện / Phòng khám"
+    if any(k in u for k in ["BV", "DHYD", "PKCK", "PKRHM", "PHONG KHAM"]):
+        if "TT" not in u and "P." not in u: # Tránh nhầm với trung tâm / phòng
+            return "Khối Bệnh viện / Phòng khám"
 
     # 2. Khối Trung tâm
-    if any(k in u for k in ["TT.", "TT ", "TRUNG TAM", "TTCNTT", "TTGDYH", "TTKCCL", "TTYSHPT", "KCCLXN"]):
+    if u.startswith("TT") or "TRUNG TAM" in u or any(k in u for k in ["TT.CNTT", "TT.GDYH", "TT.KCCL", "TT.KCCLXN", "TT.YSHPT", "TT.KHCN", "TT.DTNL"]):
         return "Khối Trung tâm"
 
     # 3. Khối Phòng chức năng
-    if any(k in u for k in ["P.", "PHONG", "HCTH", "QTGT", "TCCB", "CTSV", "KHCN", "HTQT", "KHTC", "TTPC", "DTSDH", "ĐTSĐH", "DTĐH", "ĐTĐH", "DBCL", "ĐBCL"]):
+    if u.startswith("P.") or "PHONG" in u or any(k in u for k in ["HCTH", "QTGT", "TCCB", "CTSV", "KHCN", "HTQT", "KHTC", "TTPC", "DTSDH", "ĐTSĐH", "DTĐH", "ĐTĐH", "DBCL", "ĐBCL"]):
         return "Khối Phòng chức năng"
 
     # 4. Khối Đơn vị khác
-    if any(k in u for k in ["KTX", "TCYH", "THU VIEN", "THUVIEN", "TAP CHI"]):
+    if any(k in u for k in ["KTX", "TCYH", "THU VIEN", "THƯ VIỆN", "TAP CHI"]):
         return "Khối Đơn vị khác"
 
-    # 5. Khối Trường / Khoa (Căn bản, Dược, RHM, YYTCC, YHCT, Trường Y)
-    if any(k in u for k in ["K.", "KHOA", "T.", "TRUONG", "TRƯỜNG Y", "DUOC", "DƯỢC", "RHM", "YTCC", "YHCT", "KHCB", "DDKTYH", "ĐĐKTYH"]):
+    # 5. Khối Trường / Khoa
+    if u.startswith("K.") or u.startswith("T.") or "TRUONG" in u or "TRƯỜNG" in u or "KHOA" in u or any(k in u for k in ["DUOC", "DƯỢC", "RHM", "YTCC", "YHCT", "KHCB", "DDKTYH", "ĐĐKTYH"]):
         return "Khối Trường / Khoa"
 
-    return "Đơn vị khác"
+    return "Khối Phòng chức năng"
 
 
 try:
@@ -142,7 +143,7 @@ try:
     df_all = service.get_full_ogsm_data()
 
     if not df_all.empty:
-        # Gán Khối chính xác cho từng dòng dựa trên Unit_Code
+        # Gán Khối cho từng dòng dựa trên Unit_Code
         df_all["Unit_Group"] = df_all["Unit_Code"].apply(get_unit_group_exact)
 
         GROUPS_LIST = [
@@ -170,7 +171,7 @@ try:
             selected_unit = "Tất Cả Đơn Vị (Toàn Trường)"
             st.caption("Đại học Y Dược TP. Hồ Chí Minh - Báo Cáo Tổng Hợp Toàn Trường (29 Đơn Vị)")
         else:
-            # Chỉ lọc danh sách đơn vị thực sự thuộc về Khối này
+            # Lấy danh sách các đơn vị thực tế thuộc Khối được chọn
             df_group_available = df_all[df_all["Unit_Group"] == selected_group]
             available_units_real = sorted(list(df_group_available["Unit_Code"].unique()))
             
@@ -189,7 +190,7 @@ try:
                 st.info(f"Chưa có tệp dữ liệu nào thuộc {selected_group}.")
                 selected_unit = f"GROUP:{selected_group}"
 
-        # Lọc dữ liệu chính xác
+        # Lọc dữ liệu chuẩn xác
         df_filtered = df_all.copy()
         if selected_unit == "Tất Cả Đơn Vị (Toàn Trường)":
             pass
@@ -226,6 +227,7 @@ try:
         st.markdown("---")
 
         # 3. Biểu đồ Tiến độ thực hiện KPI đến hạn năm hiện hành
+        current_yr = datetime.datetime.now().year
         fig_bar_current = create_stacked_kpi_by_unit_chart(df_filtered, current_year_only=True)
         st.plotly_chart(fig_bar_current, use_container_width=True)
 
