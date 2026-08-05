@@ -1,6 +1,6 @@
 """
-Analytics engine for KPI calculation.
-Supports Vietnamese status values from OGSM Excel files.
+OGSM Analytics Service - Tính toán các chỉ số KPI, tỷ lệ hoàn thành và phân bố trạng thái.
+Bao gồm bẫy lỗi an toàn cho các cột Goal_ID / Strategy_ID.
 """
 
 import pandas as pd
@@ -8,49 +8,56 @@ from typing import Dict, Any
 
 
 class OGSMAnalyticsService:
-
     @staticmethod
     def compute_summary_kpis(df: pd.DataFrame) -> Dict[str, Any]:
+        """Tính toán tổng số Objectives, Goals/Strategies, Measures và % Hoàn thành."""
         if df.empty:
             return {
                 "total_objectives": 0,
-                "total_strategies": 0,
+                "total_goals": 0,
                 "total_measures": 0,
                 "avg_completion_rate": 0.0,
-                "completed_measures": 0,
+                "completed_measures": 0
             }
 
-        total_objs = df["Objective_ID"].nunique()
-        total_strats = df["Strategy_ID"].nunique()
-        total_measures = df["Measure_ID"].nunique()
+        # 1. Đếm số Objectives
+        obj_col = "Objective_ID" if "Objective_ID" in df.columns else df.columns[0]
+        total_objectives = df[obj_col].dropna().astype(str).str.strip().nunique()
 
-        # Tính tỷ lệ hoàn thành trung bình
-        targets = df["Target"].replace(0, 100.0)
-        df_calc = df.copy()
-        
-        # Nếu cột Actual đã là tỷ lệ % sẵn thì lấy trực tiếp Actual
-        df_calc["Completion"] = df_calc["Actual"].clip(lower=0.0, upper=100.0)
-        avg_completion = float(df_calc["Completion"].mean())
+        # 2. Đếm số Goals / Strategies an toàn
+        total_goals = 0
+        for g_col in ["Goal_ID", "Strategy_ID", "Goal_ID_1"]:
+            if g_col in df.columns:
+                total_goals = df[g_col].dropna().astype(str).str.strip().nunique()
+                if total_goals > 0:
+                    break
 
-        # Đếm số lượng Hoàn thành (hỗ trợ cả tiếng Việt và tiếng Anh)
-        completed_mask = df["Status"].astype(str).str.strip().str.lower().isin(
-            ["hoàn thành", "completed", "đạt"]
-        )
-        completed_cnt = int(completed_mask.sum())
+        # 3. Đếm số Measures
+        meas_col = "Measure_ID" if "Measure_ID" in df.columns else df.columns[0]
+        total_measures = len(df[meas_col].dropna())
+
+        # 4. Đếm số câu trả lời / tiến độ hoàn thành
+        status_col = "Status" if "Status" in df.columns else None
+        completed_measures = 0
+        if status_col:
+            completed_measures = len(df[df[status_col].astype(str).str.strip() == "Hoàn thành"])
+
+        avg_completion_rate = (completed_measures / total_measures * 100) if total_measures > 0 else 0.0
 
         return {
-            "total_objectives": total_objs,
-            "total_strategies": total_strats,
+            "total_objectives": total_objectives,
+            "total_goals": total_goals,
             "total_measures": total_measures,
-            "avg_completion_rate": round(avg_completion, 1),
-            "completed_measures": completed_cnt,
+            "avg_completion_rate": round(avg_completion_rate, 1),
+            "completed_measures": completed_measures
         }
 
     @staticmethod
     def get_status_distribution(df: pd.DataFrame) -> pd.DataFrame:
+        """Thống kê số lượng theo từng trạng thái thực hiện."""
         if df.empty or "Status" not in df.columns:
             return pd.DataFrame(columns=["Status", "Count"])
-        
-        dist = df["Status"].value_counts().reset_index()
-        dist.columns = ["Status", "Count"]
-        return dist
+
+        counts = df["Status"].astype(str).str.strip().value_counts().reset_index()
+        counts.columns = ["Status", "Count"]
+        return counts
