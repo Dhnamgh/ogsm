@@ -1,5 +1,5 @@
 """
-OGSM Business Logic Service.
+OGSM Business Logic Service - Chuẩn kết nối ExcelOneDriveRepository
 """
 
 import pandas as pd
@@ -17,15 +17,37 @@ class OGSMService:
         self.repo = repo or ExcelOneDriveRepository()
 
     def get_full_ogsm_data(self) -> pd.DataFrame:
-        return self.repo.fetch_master_dataframe()
+        """Đọc toàn bộ Master Dataframe từ các file Excel trên OneDrive."""
+        try:
+            return self.repo.fetch_master_dataframe()
+        except Exception as e:
+            logger.error(f"Lỗi khi lấy dữ liệu từ Repository OneDrive: {e}")
+            return pd.DataFrame()
 
     def get_available_units(self) -> List[str]:
+        """Lấy danh sách mã đơn vị hiện có."""
         df = self.get_full_ogsm_data()
         if "Unit_Code" in df.columns:
             return sorted(df["Unit_Code"].dropna().unique().tolist())
         return []
 
+    def upload_unit_file(self, filename: str, file_bytes: bytes) -> bool:
+        """Upload/Cập nhật file báo cáo Excel đơn vị lên OneDrive."""
+        try:
+            if hasattr(self.repo, "upload_file"):
+                return self.repo.upload_file(filename, file_bytes)
+            elif hasattr(self.repo, "save_unit_file"):
+                return self.repo.save_unit_file(filename, file_bytes)
+            else:
+                # Trường hợp lưu thông qua dataframe
+                df = pd.read_excel(file_bytes, engine="openpyxl")
+                return self.repo.save_unit_dataframe(filename, df)
+        except Exception as e:
+            logger.error(f"Lỗi khi upload file {filename}: {e}")
+            return False
+
     def update_measure_actual(self, measure_id: str, new_actual: float, status: str) -> bool:
+        """Cập nhật kết quả thực hiện cho từng chỉ số KPI."""
         df_master = self.repo.fetch_master_dataframe()
 
         mask = df_master["Measure_ID"] == measure_id
@@ -43,6 +65,7 @@ class OGSMService:
         return self.repo.save_unit_dataframe(source_file, df_unit)
 
     def get_dashboard_summary(self, unit_filter: Optional[str] = None) -> Dict[str, Any]:
+        """Tính toán tổng hợp số liệu cho Dashboard."""
         df = self.get_full_ogsm_data()
         if unit_filter and "Unit_Code" in df.columns:
             df = df[df["Unit_Code"] == unit_filter]
