@@ -1,6 +1,6 @@
 """
 Trang Quản lý dữ liệu OGSM - Đại học Y Dược TP.HCM
-Sử dụng Tab giao diện chuẩn với hiệu ứng Hover đổi màu xanh nổi bật khi trỏ con trỏ chuột.
+Thiết kế Tab chữ trắng nền xanh bo 4 góc, Tiêu đề trong Tab chữ xanh nền trắng nổi bật.
 """
 
 import sys
@@ -20,43 +20,60 @@ logger = get_logger()
 
 st.set_page_config(page_title="Quản Lý Dữ Liệu - OGSM Portal", layout="wide")
 
-# Bộ CSS tạo hiệu ứng Tab nổi bật: Nền xanh Facebook (#1877F2) khi Active và Đổi màu xanh nhẹ (#E7F3FF) khi Hover
+# CSS Thiết kế Tab chữ trắng nền xanh bo 4 góc & Tiêu đề trong Tab chữ xanh nền trắng
 st.markdown("""
 <style>
-    /* Khung danh sách các Tab */
+    /* 1. Khung chứa danh sách các Tab */
     .stTabs [data-baseweb="tab-list"] {
-        gap: 8px;
-        background-color: #f0f2f5;
-        padding: 8px;
-        border-radius: 10px;
+        gap: 10px;
+        background-color: transparent;
+        padding: 6px 0px;
     }
-    /* Thẻ Tab mặc định */
+
+    /* 2. Thẻ Tab mặc định: Chữ trắng trên nền xanh, bo tròn cả 4 góc */
     .stTabs [data-baseweb="tab"] {
-        height: 42px;
-        background-color: #ffffff;
-        border-radius: 8px;
-        color: #1c1e21;
-        font-weight: 600;
-        padding: 8px 18px;
-        border: 1px solid #e4e6eb;
-        transition: all 0.2s ease-in-out;
-    }
-    /* HIỆU ỨNG NỔI MÀU XANH KHI TRỎ CON TRỎ CHUỘT VÀO TAB (HOVER) */
-    .stTabs [data-baseweb="tab"]:hover {
-        background-color: #e7f3ff !important;
-        color: #1877F2 !important;
-        border-color: #1877F2 !important;
-        cursor: pointer;
-    }
-    /* TAB ĐANG ĐƯỢC CHỌN (ACTIVE) */
-    .stTabs [aria-selected="true"] {
+        height: 44px;
         background-color: #1877F2 !important;
         color: #ffffff !important;
-        border-color: #1877F2 !important;
-        box-shadow: 0 3px 8px rgba(24, 119, 242, 0.35);
+        border-radius: 8px !important;
+        font-size: 15px;
+        font-weight: 600;
+        padding: 10px 20px;
+        border: none !important;
+        transition: all 0.25s ease-in-out;
+        box-shadow: 0 2px 5px rgba(24, 119, 242, 0.2);
     }
-    
-    /* Hiệu ứng Hover cho nút bấm Tải Lên */
+
+    /* 3. HIỆU ỨNG HOVER: Khi trỏ con trỏ chuột vào Tab */
+    .stTabs [data-baseweb="tab"]:hover {
+        background-color: #166fe5 !important;
+        color: #ffffff !important;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(22, 111, 229, 0.4);
+        cursor: pointer;
+    }
+
+    /* 4. Tab đang được chọn (Active) */
+    .stTabs [aria-selected="true"] {
+        background-color: #0b51c5 !important;
+        color: #ffffff !important;
+        box-shadow: 0 4px 10px rgba(11, 81, 197, 0.5) !important;
+    }
+
+    /* 5. Tiêu đề trong Tab: Chữ xanh trên nền trắng nổi bật */
+    .tab-inner-header {
+        background-color: #ffffff;
+        color: #1877F2;
+        padding: 12px 18px;
+        border-radius: 8px;
+        border-left: 5px solid #1877F2;
+        font-size: 16px;
+        font-weight: 700;
+        margin: 12px 0px 16px 0px;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+    }
+
+    /* Styling nút bấm Tải lên */
     .stButton > button {
         background-color: #1877F2;
         color: white;
@@ -127,29 +144,25 @@ try:
     col_upload, col_guide = st.columns([1.2, 0.8])
 
     with col_upload:
-        st.write("**Bước 1: Chọn Khối Đơn Vị (Di con trỏ chuột vào Tab để xem hiệu ứng):**")
-        group_tabs = st.tabs(list(UNIT_GROUPS.keys()))
+        st.markdown('<div class="tab-inner-header">Bước 1: Chọn Khối Đơn Vị Báo Cáo</div>', unsafe_allow_html=True)
         
-        # Dictionary lưu mã đơn vị đang được chọn ở từng Tab
-        selected_unit_by_tab = {}
+        group_tabs = st.tabs(list(UNIT_GROUPS.keys()))
         
         for i, (group_name, units_dict) in enumerate(UNIT_GROUPS.items()):
             with group_tabs[i]:
-                st.write(f"**Bước 2: Chọn Đơn vị thuộc {group_name}**")
-                unit_options = [f"{k} - {v}" for k, v in units_dict.items()]
+                # Tiêu đề bên trong Tab: Chữ xanh trên nền trắng
+                st.markdown(f'<div class="tab-inner-header">Bước 2: Danh sách Đơn vị thuộc [{group_name}]</div>', unsafe_allow_html=True)
                 
-                selected_item = st.selectbox(
+                unit_options = [f"{k} - {v}" for k, v in units_dict.items()]
+                st.selectbox(
                     "Tên Đơn Vị Báo Cáo:",
                     options=unit_options,
                     key=f"select_tab_unit_{i}"
                 )
-                selected_unit_by_tab[group_name] = selected_item
 
-        # Lấy Tab đang mở thực tế thông qua thao tác người dùng
-        # Streamlit sẽ sử dụng đơn vị từ dropdown tương ứng của Tab đang chọn
         st.markdown("---")
         
-        # Chọn tổng hợp từ dropdown đại diện chính xác
+        # Danh sách phẳng phục vụ xác nhận tải lên chính xác
         all_flatten_units = []
         for g_units in UNIT_GROUPS.values():
             for k, v in g_units.items():
@@ -181,7 +194,7 @@ try:
                         success = service.upload_unit_file(target_filename, file_bytes)
                         
                         if success:
-                            st.success(f"🎉 Đã cập nhật thành công báo cáo cho đơn vị **{final_selected_unit}**.")
+                            st.success(f"Đã cập nhật thành công báo cáo cho đơn vị **{final_selected_unit}**.")
                             st.cache_data.clear()
                         else:
                             st.error("Không thể ghi đè file lên OneDrive. Vui lòng kiểm tra lại cấu hình kết nối.")
