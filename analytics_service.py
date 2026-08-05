@@ -1,5 +1,5 @@
 """
-OGSM Analytics Service - Thuật toán đếm linh hoạt các chỉ số OGSM.
+OGSM Analytics Service - Thuật toán đếm linh hoạt và chính xác cho Objectives, Goals, Measures.
 """
 
 import pandas as pd
@@ -18,37 +18,42 @@ class OGSMAnalyticsService:
                 "completed_measures": 0
             }
 
-        # 1. Thuật toán đếm Objectives an toàn
+        df_calc = df.copy()
+
+        # 1. Đếm Objectives (Ưu tiên đếm theo ID, nếu trống thì đếm theo cột Nội dung)
         total_objectives = 0
-        for col in ["Objective_ID", "Objective_ID_1"]:
-            if col in df.columns:
-                valid_objs = df[col].dropna().astype(str).str.strip()
-                valid_objs = valid_objs[valid_objs != ""]
-                if not valid_objs.empty:
-                    total_objectives = valid_objs.nunique()
-                    break
+        obj_cols = [c for c in df_calc.columns if any(k in c.lower() for k in ["objective", "mục tiêu"])]
+        for col in obj_cols:
+            # Forward fill nếu dữ liệu bị trống do gộp ô Excel
+            s = df_calc[col].astype(str).str.strip().replace(["nan", "None", "NaN", ""], None).ffill()
+            valid_s = s.dropna()
+            if not valid_s.empty:
+                total_objectives = valid_s.nunique()
+                break
 
-        # 2. Thuật toán đếm Goals / Strategies an toàn
+        # 2. Đếm Goals / Strategies (Ưu tiên đếm ID, nếu trống đếm theo Nội dung)
         total_goals = 0
-        for col in ["Goal_ID", "Goal_ID_1", "Strategy_ID"]:
-            if col in df.columns:
-                valid_goals = df[col].dropna().astype(str).str.strip()
-                valid_goals = valid_goals[valid_goals != ""]
-                if not valid_goals.empty:
-                    total_goals = valid_goals.nunique()
-                    break
+        goal_cols = [c for c in df_calc.columns if any(k in c.lower() for k in ["goal", "strategy", "chiến lược", "chỉ tiêu"])]
+        for col in goal_cols:
+            s = df_calc[col].astype(str).str.strip().replace(["nan", "None", "NaN", ""], None).ffill()
+            valid_s = s.dropna()
+            if not valid_s.empty:
+                total_goals = valid_s.nunique()
+                break
 
-        # 3. Đếm tổng số Measures (KPIs)
-        meas_col = "Measure_ID" if "Measure_ID" in df.columns else df.columns[0]
-        valid_meas = df[meas_col].dropna().astype(str).str.strip()
-        total_measures = len(valid_meas[valid_meas != ""])
-        if total_measures == 0:
-            total_measures = len(df)
+        # 3. Đếm Measures / KPIs (Đếm tổng số dòng hoạt động)
+        total_measures = len(df_calc)
 
         # 4. Thống kê tiến độ hoàn thành
         completed_measures = 0
-        if "Status" in df.columns:
-            status_clean = df["Status"].dropna().astype(str).str.strip().str.lower()
+        status_col = None
+        for col in df_calc.columns:
+            if "status" in col.lower() or "trạng thái" in col.lower():
+                status_col = col
+                break
+
+        if status_col:
+            status_clean = df_calc[status_col].astype(str).str.strip().str.lower()
             completed_measures = len(status_clean[status_clean == "hoàn thành"])
 
         avg_completion_rate = (completed_measures / total_measures * 100) if total_measures > 0 else 0.0
@@ -63,9 +68,18 @@ class OGSMAnalyticsService:
 
     @staticmethod
     def get_status_distribution(df: pd.DataFrame) -> pd.DataFrame:
-        if df.empty or "Status" not in df.columns:
+        if df.empty:
             return pd.DataFrame(columns=["Status", "Count"])
 
-        counts = df["Status"].dropna().astype(str).str.strip().value_counts().reset_index()
+        status_col = None
+        for col in df.columns:
+            if "status" in col.lower() or "trạng thái" in col.lower():
+                status_col = col
+                break
+
+        if not status_col:
+            return pd.DataFrame(columns=["Status", "Count"])
+
+        counts = df[status_col].dropna().astype(str).str.strip().value_counts().reset_index()
         counts.columns = ["Status", "Count"]
         return counts
