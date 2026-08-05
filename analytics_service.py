@@ -3,6 +3,7 @@ Analytics engine for KPI calculation.
 Supports Vietnamese status values from OGSM Excel files.
 """
 
+import re
 import pandas as pd
 from typing import Dict, Any
 
@@ -20,29 +21,39 @@ class OGSMAnalyticsService:
                 "completed_measures": 0,
             }
 
-        # Làm sạch chuỗi trước khi đếm unique (xóa khoảng trắng thừa, chuẩn hóa chữ hoa, bỏ rỗng)
-        def clean_unique_count(series: pd.Series) -> int:
-            if series is None or series.empty:
-                return 0
-            cleaned = (
-                series.dropna()
-                .astype(str)
-                .str.strip()
-                .str.upper()
-            )
-            # Loại bỏ các chuỗi rỗng hoặc giá trị nan sau khi strip
-            cleaned = cleaned[~cleaned.isin(["", "NAN", "NONE", "NULL"])]
-            return cleaned.nunique()
+        # 1. Đếm Objectives (O1 -> O5)
+        total_objs = 0
+        if "Objective_ID" in df.columns:
+            objs = df["Objective_ID"].dropna().astype(str).str.strip().str.upper()
+            # Trích xuất dạng O1, O2... hoặc O01
+            objs_extracted = objs.str.extract(r'(O\d+)', expand=False).dropna()
+            total_objs = objs_extracted.nunique() if not objs_extracted.empty else objs.nunique()
 
-        total_objs = clean_unique_count(df["Objective_ID"]) if "Objective_ID" in df.columns else 0
-        
-        # Kiểm tra cột Strategy_ID hoặc Goal_ID
-        strat_col = "Strategy_ID" if "Strategy_ID" in df.columns else ("Goal_ID" if "Goal_ID" in df.columns else None)
-        total_strats = clean_unique_count(df[strat_col]) if strat_col else 0
-        
-        total_measures = clean_unique_count(df["Measure_ID"]) if "Measure_ID" in df.columns else 0
+        # 2. Đếm Goals / Strategies chuẩn (G1 -> G15)
+        total_strats = 0
+        goal_col = None
+        for col in ["Goal_ID", "Strategy_ID"]:
+            if col in df.columns:
+                goal_col = col
+                break
 
-        # Tính tỷ lệ hoàn thành trung bình
+        if goal_col:
+            goals = df[goal_col].dropna().astype(str).str.strip().str.upper()
+            # Trích xuất mã Goal chuẩn dạng G1, G2... G15 (bỏ qua các ký tự phụ hoặc dòng rỗng)
+            goals_extracted = goals.str.extract(r'(G\d+)', expand=False).dropna()
+            if not goals_extracted.empty:
+                total_strats = goals_extracted.nunique()
+            else:
+                total_strats = goals.nunique()
+
+        # 3. Đếm Measures
+        total_measures = 0
+        if "Measure_ID" in df.columns:
+            measures = df["Measure_ID"].dropna().astype(str).str.strip()
+            measures = measures[~measures.isin(["", "nan", "None", "null"])]
+            total_measures = measures.nunique()
+
+        # 4. Tính tỷ lệ hoàn thành trung bình
         df_calc = df.copy()
         if "Actual" in df_calc.columns:
             df_calc["Completion"] = pd.to_numeric(df_calc["Actual"], errors="coerce").fillna(0.0).clip(lower=0.0, upper=100.0)
@@ -50,7 +61,7 @@ class OGSMAnalyticsService:
         else:
             avg_completion = 0.0
 
-        # Đếm số lượng Hoàn thành
+        # 5. Đếm số lượng Hoàn thành
         completed_cnt = 0
         if "Status" in df.columns:
             completed_mask = df["Status"].astype(str).str.strip().str.lower().isin(
