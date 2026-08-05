@@ -1,6 +1,6 @@
 """
 Trang Executive Dashboard - Đại học Y Dược TP.HCM
-Cập nhật hiển thị Biểu đồ Mục tiêu chiến lược (Objectives - O) cạnh Biểu đồ tròn.
+Hiển thị thêm 3 biểu đồ ngang về Tổng số KPI và Tỷ lệ hoàn thành theo đơn vị.
 """
 
 import sys
@@ -111,7 +111,6 @@ st.markdown("""
 
 
 def normalize_code(code_str: str) -> str:
-    """Rút gọn mã về dạng cốt lõi để so sánh (Ví dụ: 'P.HCTH' -> 'HCTH', 'TT.KCCLXN' -> 'TTKC')."""
     if not code_str:
         return ""
     s = str(code_str).upper().replace(".XLSX", "").strip()
@@ -127,7 +126,9 @@ try:
     from charts import (
         create_status_donut_chart, 
         create_objective_progress_chart, 
-        create_stacked_kpi_by_unit_chart
+        create_stacked_kpi_by_unit_chart,
+        create_total_kpis_by_unit_chart,
+        create_completion_rate_by_unit_chart
     )
 
     st.markdown('<div class="main-banner-blue">Tổng Quan Thực Hiện OGSM - Đại học Y Dược TP.HCM</div>', unsafe_allow_html=True)
@@ -181,7 +182,7 @@ try:
             else:
                 selected_unit = f"GROUP:{selected_group}"
 
-        # Lọc dữ liệu theo đơn vị / khối
+        # Lọc dữ liệu theo lựa chọn
         df_filtered = df_all.copy()
         if selected_unit == "Tất Cả Đơn Vị (Toàn Trường)":
             pass
@@ -199,9 +200,8 @@ try:
 
         st.markdown("---")
 
-        # Hàng 1: Biểu đồ tròn Trạng thái bên trái & Biểu đồ Objectives (O) bên phải
+        # 1. Biểu đồ tròn Trạng thái & Biểu đồ Objectives (O)
         col_donut, col_obj = st.columns([0.8, 1.2])
-
         with col_donut:
             df_status = OGSMAnalyticsService.get_status_distribution(df_filtered)
             fig_donut = create_status_donut_chart(df_status)
@@ -213,18 +213,37 @@ try:
 
         st.markdown("---")
 
-        # Hàng 2: Biểu đồ cơ cấu thực hiện KPI theo Đơn vị (2025-2029)
+        # 2. Biểu đồ Cơ cấu thực hiện KPI giai đoạn 2025-2030 theo đơn vị
         fig_bar_all = create_stacked_kpi_by_unit_chart(df_filtered, current_year_only=False)
         st.plotly_chart(fig_bar_all, use_container_width=True)
 
         st.markdown("---")
 
-        # Hàng 3: Biểu đồ tiến độ đến hạn năm hiện hành
+        # 3. Biểu đồ Tiến độ thực hiện KPI đến hạn năm hiện hành
         current_yr = datetime.datetime.now().year
-        st.markdown(f'<div class="section-banner-blue">Thống Kê Tiến Độ Đến Hạn Năm Hiện Hành ({current_yr})</div>', unsafe_allow_html=True)
-        
         fig_bar_current = create_stacked_kpi_by_unit_chart(df_filtered, current_year_only=True)
         st.plotly_chart(fig_bar_current, use_container_width=True)
+
+        st.markdown("---")
+
+        # 4. THÊM 3 BIỂU ĐỒ NGANG THEO ĐƠN VỊ
+        st.markdown('<div class="section-banner-blue">Thống Kê Chi Tiết Số Lượng & Tỷ Lệ Hoàn Thành Theo Đơn Vị</div>', unsafe_allow_html=True)
+
+        # Biểu đồ 4.1: Tổng số KPI theo đơn vị
+        fig_total_kpis = create_total_kpis_by_unit_chart(df_filtered)
+        st.plotly_chart(fig_total_kpis, use_container_width=True)
+
+        st.markdown("---")
+
+        # Biểu đồ 4.2: Tỷ lệ hoàn thành theo đơn vị năm hiện hành
+        fig_rate_current = create_completion_rate_by_unit_chart(df_filtered, current_year_only=True)
+        st.plotly_chart(fig_rate_current, use_container_width=True)
+
+        st.markdown("---")
+
+        # Biểu đồ 4.3: Tỷ lệ hoàn thành theo đơn vị cả giai đoạn 2025–2030
+        fig_rate_all = create_completion_rate_by_unit_chart(df_filtered, current_year_only=False)
+        st.plotly_chart(fig_rate_all, use_container_width=True)
 
     else:
         st.warning("Không tìm thấy file dữ liệu đơn vị nào trong thư mục DATA trên OneDrive.")
