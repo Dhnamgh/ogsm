@@ -1,6 +1,6 @@
 """
 Trang Executive Dashboard - Đại học Y Dược TP.HCM
-Banner tiêu đề chính ôm sát chữ gọn gàng.
+Cập nhật CSS hiệu ứng Hover & Active màu xanh cho Menu khung trái (Sidebar).
 """
 
 import sys
@@ -19,8 +19,33 @@ from charts import create_status_donut_chart, create_stacked_kpi_by_unit_chart
 
 st.set_page_config(page_title="Dashboard OGSM - Đại học Y Dược TP.HCM", layout="wide")
 
+# Bộ CSS tùy chỉnh hiệu ứng Hover & Active màu xanh Facebook cho Sidebar (Khung trái)
 st.markdown("""
 <style>
+    /* 1. Thiết kế các mục điều hướng Menu bên khung trái Sidebar */
+    [data-testid="stSidebarNav"] ul li a {
+        border-radius: 8px !important;
+        padding: 10px 14px !important;
+        margin: 3px 0px !important;
+        font-weight: 600 !important;
+        transition: all 0.2s ease-in-out !important;
+    }
+
+    /* Hiệu ứng HOVER: Rà con trỏ chuột vào mục ở khung trái */
+    [data-testid="stSidebarNav"] ul li a:hover {
+        background-color: #e7f3ff !important;
+        color: #1877F2 !important;
+        transform: translateX(4px);
+    }
+
+    /* Hiệu ứng ACTIVE: Mục đang được chọn ở khung trái */
+    [data-testid="stSidebarNav"] ul li a[aria-current="page"] {
+        background-color: #1877F2 !important;
+        color: #ffffff !important;
+        box-shadow: 0 3px 8px rgba(24, 119, 242, 0.35) !important;
+    }
+
+    /* 2. Style Banner tiêu đề */
     .main-banner-blue {
         display: inline-block;
         background: #1877F2;
@@ -53,6 +78,29 @@ st.markdown("""
         font-weight: 700;
         margin: 8px 0px 10px 0px;
         box-shadow: 0 2px 4px rgba(0,0,0,0.03);
+    }
+
+    /* 3. Style thẻ chọn Khối đơn vị */
+    div[data-testid="stSegmentedControl"] {
+        background-color: #f0f2f5;
+        padding: 6px;
+        border-radius: 10px;
+        border: 1px solid #e4e6eb;
+    }
+    div[data-testid="stSegmentedControl"] button {
+        border-radius: 8px !important;
+        font-weight: 600 !important;
+        border: none !important;
+        transition: all 0.2s ease-in-out !important;
+    }
+    div[data-testid="stSegmentedControl"] button:hover {
+        background-color: #e7f3ff !important;
+        color: #1877F2 !important;
+    }
+    div[data-testid="stSegmentedControl"] button[aria-selected="true"] {
+        background-color: #1877F2 !important;
+        color: #ffffff !important;
+        box-shadow: 0 2px 6px rgba(24, 119, 242, 0.35);
     }
 </style>
 """, unsafe_allow_html=True)
