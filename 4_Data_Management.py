@@ -1,6 +1,6 @@
 """
 Trang Quản lý dữ liệu OGSM - Đại học Y Dược TP.HCM
-Tên đơn vị tải lên liên kết tự động theo thời gian thực với Tab được chọn.
+Cập nhật đơn vị tải file liên kết thời gian thực và thiết kế Banner khung xanh bo góc chữ trắng.
 """
 
 import sys
@@ -20,51 +20,35 @@ logger = get_logger()
 
 st.set_page_config(page_title="Quản Lý Dữ Liệu - OGSM Portal", layout="wide")
 
-# CSS Tiêu đề chữ xanh nền trắng & Tab chữ trắng nền xanh bo 4 góc
+# CSS Thiết kế Banner chữ trắng nền xanh bo 8px & Khung tiêu đề con
 st.markdown("""
 <style>
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 10px;
-        background-color: transparent;
-        padding: 6px 0px;
-    }
-    .stTabs [data-baseweb="tab"] {
-        height: 44px;
-        background-color: #1877F2 !important;
+    /* 1. Banner Tiêu Đề Chính: Khung nền xanh Facebook bo 8px, chữ trắng nổi bật */
+    .main-banner-blue {
+        background: linear-gradient(135deg, #1877F2 0%, #0b51c5 100%);
         color: #ffffff !important;
-        border-radius: 8px !important;
-        font-size: 15px;
-        font-weight: 600;
-        padding: 10px 20px;
-        border: none !important;
-        transition: all 0.25s ease-in-out;
-        box-shadow: 0 2px 5px rgba(24, 119, 242, 0.2);
-    }
-    .stTabs [data-baseweb="tab"]:hover {
-        background-color: #166fe5 !important;
-        color: #ffffff !important;
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(22, 111, 229, 0.4);
-        cursor: pointer;
-    }
-    .stTabs [aria-selected="true"] {
-        background-color: #0b51c5 !important;
-        color: #ffffff !important;
-        box-shadow: 0 4px 10px rgba(11, 81, 197, 0.5) !important;
-    }
-
-    .section-header-blue {
-        background-color: #ffffff;
-        color: #1877F2;
-        padding: 12px 18px;
+        padding: 16px 24px;
         border-radius: 8px;
-        border: 1px solid #e4e6eb;
-        font-size: 18px;
+        font-size: 24px;
         font-weight: 700;
-        margin: 14px 0px 14px 0px;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+        text-align: center;
+        box-shadow: 0 4px 12px rgba(24, 119, 242, 0.35);
+        margin-bottom: 24px;
     }
 
+    /* 2. Banner Tiêu Đề Mục lớn */
+    .section-banner-blue {
+        background-color: #1877F2;
+        color: #ffffff !important;
+        padding: 12px 20px;
+        border-radius: 8px;
+        font-size: 17px;
+        font-weight: 700;
+        margin: 16px 0px 16px 0px;
+        box-shadow: 0 2px 8px rgba(24, 119, 242, 0.25);
+    }
+
+    /* 3. Khung Tiêu Đề Con: Nền trắng chữ xanh bo góc */
     .subsection-header-blue {
         background-color: #ffffff;
         color: #1877F2;
@@ -77,24 +61,35 @@ st.markdown("""
         box-shadow: 0 2px 5px rgba(0,0,0,0.03);
     }
 
+    /* Style nút chọn Khối đơn vị kiểu thẻ bo góc mượt mà */
+    div[data-testid="stSegmentedControl"] button {
+        border-radius: 8px !important;
+        font-weight: 600 !important;
+    }
+
+    /* Styling nút bấm Tải lên */
     .stButton > button {
         background-color: #1877F2;
         color: white;
         border-radius: 8px;
         font-weight: bold;
         border: none;
-        padding: 10px 24px;
+        padding: 12px 28px;
+        font-size: 16px;
         transition: all 0.2s;
+        box-shadow: 0 4px 10px rgba(24, 119, 242, 0.3);
     }
     .stButton > button:hover {
         background-color: #166fe5;
-        box-shadow: 0 4px 12px rgba(22, 111, 229, 0.4);
+        box-shadow: 0 6px 16px rgba(22, 111, 229, 0.45);
     }
 </style>
 """, unsafe_allow_html=True)
 
-st.title("Quản Lý và Cập Nhật Dữ Liệu Báo Cáo OGSM")
+# BANNER TIÊU ĐỀ CHÍNH CỦA TRANG
+st.markdown('<div class="main-banner-blue">Quản Lý và Cập Nhật Dữ Liệu Báo Cáo OGSM</div>', unsafe_allow_html=True)
 
+# Phân loại chuẩn 29 đơn vị UMP
 UNIT_GROUPS = {
     "Khối Phòng chức năng": {
         "P.HCTH": "Phòng Hành chính Tổng hợp",
@@ -137,56 +132,52 @@ UNIT_GROUPS = {
     }
 }
 
-# Khởi tạo giá trị mặc định cho Đơn vị được chọn trong Session State
-if "selected_unit_label" not in st.session_state:
-    st.session_state["selected_unit_label"] = "P.HCTH - Phòng Hành chính Tổng hợp"
-
-def update_selected_unit(key_name):
-    """Callback hàm tự động cập nhật đơn vị khi chọn thay đổi ở bất kỳ Tab nào"""
-    st.session_state["selected_unit_label"] = st.session_state[key_name]
-
 try:
     service = OGSMService()
     
-    st.markdown("---")
-    st.markdown('<div class="section-header-blue">Cập Nhật Báo Cáo Cho Đơn Vị</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-banner-blue">Cập Nhật Báo Cáo Cho Đơn Vị</div>', unsafe_allow_html=True)
     
     col_upload, col_guide = st.columns([1.2, 0.8])
 
     with col_upload:
         st.markdown('<div class="subsection-header-blue">Bước 1: Chọn Khối Đơn Vị Báo Cáo</div>', unsafe_allow_html=True)
         
-        group_tabs = st.tabs(list(UNIT_GROUPS.keys()))
+        # Thẻ chọn Khối đơn vị trực quan
+        selected_group = st.segmented_control(
+            "Chọn Khối:",
+            options=list(UNIT_GROUPS.keys()),
+            default="Khối Phòng chức năng",
+            label_visibility="collapsed"
+        )
         
-        for i, (group_name, units_dict) in enumerate(UNIT_GROUPS.items()):
-            with group_tabs[i]:
-                st.markdown(f'<div class="subsection-header-blue">Bước 2: Danh sách Đơn vị thuộc [{group_name}]</div>', unsafe_allow_html=True)
-                
-                unit_options = [f"{k} - {v}" for k, v in units_dict.items()]
-                
-                selectbox_key = f"select_tab_unit_{i}"
-                st.selectbox(
-                    "Tên Đơn Vị Báo Cáo:",
-                    options=unit_options,
-                    key=selectbox_key,
-                    on_change=update_selected_unit,
-                    args=(selectbox_key,)
-                )
+        if not selected_group:
+            selected_group = "Khối Phòng chức năng"
+
+        st.markdown(f'<div class="subsection-header-blue">Bước 2: Chọn Đơn vị thuộc [{selected_group}]</div>', unsafe_allow_html=True)
+        
+        units_dict = UNIT_GROUPS[selected_group]
+        unit_options = [f"{k} - {v}" for k, v in units_dict.items()]
+        
+        # Ô chọn đơn vị thuộc Khối đang active
+        selected_unit_label = st.selectbox(
+            "Tên Đơn Vị Báo Cáo:",
+            options=unit_options,
+            key=f"selectbox_active_unit_{selected_group}"
+        )
+        
+        selected_unit_code = selected_unit_label.split(" - ")[0]
 
         st.markdown("---")
         
-        # Tự động lấy Đơn vị đang được chọn trực tiếp
-        active_unit_label = st.session_state["selected_unit_label"]
-        selected_unit_code = active_unit_label.split(" - ")[0]
-
+        # Khung tải file liên kết thời gian thực 100% với lựa chọn ở Bước 2
         uploaded_file = st.file_uploader(
-            f"Chọn file Excel báo cáo (.xlsx) cho đơn vị [{active_unit_label}]:",
+            f"Chọn file Excel báo cáo (.xlsx) cho đơn vị [{selected_unit_label}]:",
             type=["xlsx"]
         )
 
         if st.button("Tải Lên và Cập Nhật Báo Cáo", type="primary"):
             if not uploaded_file:
-                st.error(f"Vui lòng chọn file Excel (.xlsx) báo cáo cho đơn vị [{active_unit_label}] trước khi tải lên.")
+                st.error(f"Vui lòng chọn file Excel (.xlsx) báo cáo cho đơn vị [{selected_unit_label}] trước khi tải lên.")
             else:
                 with st.spinner(f"Đang lưu báo cáo cho đơn vị {selected_unit_code} lên OneDrive..."):
                     try:
@@ -197,7 +188,7 @@ try:
                         success = service.upload_unit_file(target_filename, file_bytes)
                         
                         if success:
-                            st.success(f"Đã cập nhật thành công báo cáo cho đơn vị **{active_unit_label}**.")
+                            st.success(f"Đã cập nhật thành công báo cáo cho đơn vị **{selected_unit_label}**.")
                             st.cache_data.clear()
                         else:
                             st.error("Không thể ghi đè file lên OneDrive. Vui lòng kiểm tra lại cấu hình kết nối.")
@@ -209,12 +200,12 @@ try:
         **Hướng dẫn cập nhật định kỳ:**
         1. Sử dụng file Excel khung mẫu OGSM 2025–2029 của Nhà trường.
         2. Cập nhật kết quả thực hiện vào cột **`Tỷ lệ đạt (%)`** (Trạng thái sẽ tự động được tính theo công thức sẵn trong file Excel).
-        3. Chọn đúng **Khối Đơn Vị** từ các Tab và chọn **Tên Đơn Vị**, hệ thống sẽ tự động liên kết tên đơn vị vào khung tải file bên dưới.
+        3. Chọn đúng **Khối Đơn Vị** và **Tên Đơn Vị**, hệ thống sẽ tự động liên kết đúng 100% tên đơn vị vào mục tải file Excel bên dưới.
         4. Bấm **Tải Lên và Cập Nhật Báo Cáo** để hoàn tất.
         """)
 
     st.markdown("---")
-    st.markdown('<div class="section-header-blue">Xem Dữ Liệu Báo Cáo Đã Tải Lên</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-banner-blue">Xem Dữ Liệu Báo Cáo Đã Tải Lên</div>', unsafe_allow_html=True)
 
     df_master = service.get_full_ogsm_data()
 
