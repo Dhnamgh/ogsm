@@ -1,6 +1,6 @@
 """
 Trang Executive Dashboard - Đại học Y Dược TP.HCM
-
+Khắc phục lỗi không khớp mã đơn vị giữa OneDrive và danh sách Khối.
 """
 
 import sys
@@ -15,7 +15,7 @@ import streamlit as st
 
 st.set_page_config(page_title="Dashboard OGSM - Đại học Y Dược TP.HCM", layout="wide")
 
-# CSS: Ẩn biểu tượng icon Sidebar, tùy chỉnh Hover & Active màu xanh Facebook, Banner ôm sát chữ
+# CSS giao diện
 st.markdown("""
 <style>
     /* 1. LOẠI BỎ HOÀN TOÀN BIỂU TƯỢNG ICON Ở MENU SIDEBAR KHUNG TRÁI */
@@ -32,14 +32,12 @@ st.markdown("""
         transition: all 0.2s ease-in-out !important;
     }
 
-    /* Hiệu ứng HOVER Sidebar */
     [data-testid="stSidebarNav"] ul li a:hover {
         background-color: #e7f3ff !important;
         color: #1877F2 !important;
         transform: translateX(4px);
     }
 
-    /* Hiệu ứng ACTIVE Sidebar */
     [data-testid="stSidebarNav"] ul li a[aria-current="page"] {
         background-color: #1877F2 !important;
         color: #ffffff !important;
@@ -83,7 +81,7 @@ st.markdown("""
         box-shadow: 0 2px 4px rgba(0,0,0,0.03);
     }
 
-    /* 4. NÚT CHỌN KHỐI ĐƠN VỊ (HOVER XANH) */
+    /* 4. NÚT CHỌN KHỐI ĐƠN VỊ */
     div[data-testid="stRadio"] > div {
         background-color: #f0f2f5;
         padding: 6px;
@@ -131,6 +129,9 @@ try:
     df_all = service.get_full_ogsm_data()
 
     if not df_all.empty:
+        # Chuẩn hóa cột Unit_Code để so sánh chính xác tuyệt đối
+        df_all["Clean_Code"] = df_all["Unit_Code"].astype(str).str.replace(".xlsx", "", regex=False).str.strip()
+
         st.markdown('<div class="subsection-header-blue">Chọn Khối Đơn Vị Báo Cáo</div>', unsafe_allow_html=True)
         
         selected_group = st.radio(
@@ -148,7 +149,10 @@ try:
             st.caption("Đại học Y Dược TP. Hồ Chí Minh - Báo Cáo Tổng Hợp Toàn Trường (29 Đơn Vị)")
         else:
             group_units = UNIT_GROUPS[selected_group]
-            available_in_group = [u for u in group_units if u in df_all["Unit_Code"].unique()]
+            
+            # Lấy tất cả mã đang có trong dữ liệu
+            existing_codes = set(df_all["Clean_Code"].unique()).union(set(df_all["Unit_Code"].unique()))
+            available_in_group = [u for u in group_units if u in existing_codes]
             
             if available_in_group:
                 sub_selected = st.radio(
@@ -162,19 +166,24 @@ try:
                 else:
                     selected_unit = f"GROUP:{selected_group}"
             else:
-                st.info(f"Chưa có dữ liệu cho các đơn vị thuộc {selected_group}.")
+                # Trường hợp khớp toàn bộ khối nếu dữ liệu mã có chênh lệch viết hoa/thường
                 selected_unit = f"GROUP:{selected_group}"
 
+        # Lọc dữ liệu
         df_filtered = df_all.copy()
         if selected_unit == "Tất Cả Đơn Vị (Toàn Trường)":
             pass
         elif selected_unit.startswith("GROUP:"):
             g_name = selected_unit.replace("GROUP:", "")
             target_codes = UNIT_GROUPS[g_name]
-            df_filtered = df_all[df_all["Unit_Code"].isin(target_codes)]
+            df_filtered = df_all[
+                df_all["Clean_Code"].isin(target_codes) | df_all["Unit_Code"].isin(target_codes)
+            ]
             st.caption(f"Báo Cáo Tổng Hợp: **{g_name}**")
         else:
-            df_filtered = df_all[df_all["Unit_Code"] == selected_unit]
+            df_filtered = df_all[
+                (df_all["Clean_Code"] == selected_unit) | (df_all["Unit_Code"] == selected_unit)
+            ]
             st.caption(f"Báo Cáo Tiến Độ Đơn Vị: **{selected_unit}**")
 
         kpis = OGSMAnalyticsService.compute_summary_kpis(df_filtered)
