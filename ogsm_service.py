@@ -2,6 +2,7 @@
 OGSM Business Logic Service - Chuẩn kết nối ExcelOneDriveRepository
 """
 
+import io
 import pandas as pd
 from typing import Optional, Dict, Any, List
 from excel_repository import ExcelOneDriveRepository
@@ -34,14 +35,19 @@ class OGSMService:
     def upload_unit_file(self, filename: str, file_bytes: bytes) -> bool:
         """Upload/Cập nhật file báo cáo Excel đơn vị lên OneDrive."""
         try:
-            if hasattr(self.repo, "upload_file"):
+            # 1. Đọc nội dung file từ bytes thành DataFrame
+            df_unit = pd.read_excel(io.BytesIO(file_bytes), engine="openpyxl")
+            
+            # 2. Gọi hàm ghi đè dữ liệu đơn vị của ExcelOneDriveRepository
+            if hasattr(self.repo, "save_unit_dataframe"):
+                return self.repo.save_unit_dataframe(filename, df_unit)
+            elif hasattr(self.repo, "upload_file"):
                 return self.repo.upload_file(filename, file_bytes)
             elif hasattr(self.repo, "save_unit_file"):
                 return self.repo.save_unit_file(filename, file_bytes)
             else:
-                # Trường hợp lưu thông qua dataframe
-                df = pd.read_excel(file_bytes, engine="openpyxl")
-                return self.repo.save_unit_dataframe(filename, df)
+                logger.error("Repository không hỗ trợ phương thức lưu file.")
+                return False
         except Exception as e:
             logger.error(f"Lỗi khi upload file {filename}: {e}")
             return False
