@@ -9,7 +9,7 @@ from typing import Dict, Any
 class OGSMAnalyticsService:
     @staticmethod
     def compute_summary_kpis(df: pd.DataFrame) -> Dict[str, Any]:
-        if df.empty:
+        if df is None or df.empty:
             return {
                 "total_objectives": 0,
                 "total_goals": 0,
@@ -23,7 +23,7 @@ class OGSMAnalyticsService:
         # 1. Đếm Objectives (O)
         total_objectives = 0
         for col in df_calc.columns:
-            if any(k in col.lower() for k in ["objective", "mục tiêu chiến lược", "mã o", "stt_o"]):
+            if any(k in str(col).lower() for k in ["objective", "mục tiêu chiến lược", "mã o", "stt_o"]):
                 valid_o = df_calc[col].dropna().astype(str).str.strip()
                 valid_o = valid_o[~valid_o.isin(["", "nan", "None", "NaN"])]
                 if not valid_o.empty:
@@ -33,7 +33,7 @@ class OGSMAnalyticsService:
         # 2. Đếm Goals / Strategies (G)
         total_goals = 0
         for col in df_calc.columns:
-            if any(k in col.lower() for k in ["goal", "strategy", "mục tiêu cụ thể", "chiến lược", "mã g", "stt_g"]):
+            if any(k in str(col).lower() for k in ["goal", "strategy", "mục tiêu cụ thể", "chiến lược", "mã g", "stt_g"]):
                 valid_g = df_calc[col].dropna().astype(str).str.strip()
                 valid_g = valid_g[~valid_g.isin(["", "nan", "None", "NaN"])]
                 if not valid_g.empty:
@@ -61,7 +61,7 @@ class OGSMAnalyticsService:
 
     @staticmethod
     def get_status_distribution(df: pd.DataFrame) -> pd.DataFrame:
-        if df.empty or "Status" not in df.columns:
+        if df is None or df.empty or "Status" not in df.columns:
             return pd.DataFrame(columns=["Status", "Count"])
 
         counts = df["Status"].dropna().astype(str).str.strip().value_counts().reset_index()
