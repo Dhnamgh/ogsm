@@ -1,6 +1,6 @@
 """
 Trang Quản lý dữ liệu OGSM - Đại học Y Dược TP.HCM
-Cấu hình Banner tiêu đề ôm sát chữ, bo góc mượt mà như nút bấm.
+Cấu hình CSS hiệu ứng Hover & Active màu xanh cho thanh chọn khối đơn vị.
 """
 
 import sys
@@ -20,10 +20,10 @@ logger = get_logger()
 
 st.set_page_config(page_title="Quản Lý Dữ Liệu - OGSM Portal", layout="wide")
 
-# Bộ CSS căn chỉnh Banner tiêu đề ôm gọn theo độ dài chữ (display: inline-block)
+# CSS tùy chỉnh hiệu ứng Hover & Active màu xanh cho thanh chọn Khối đơn vị (segmented_control)
 st.markdown("""
 <style>
-    /* 1. Banner Tiêu Đề Chính của Trang: Ôm sát độ dài chữ */
+    /* 1. Banner Tiêu Đề Chính */
     .main-banner-blue {
         display: inline-block;
         background: #1877F2;
@@ -36,7 +36,7 @@ st.markdown("""
         margin-bottom: 20px;
     }
 
-    /* 2. Banner Tiêu Đề Mục Lớn: Ôm sát độ dài chữ */
+    /* 2. Banner Mục Lớn */
     .section-banner-blue {
         display: inline-block;
         background-color: #1877F2;
@@ -49,7 +49,7 @@ st.markdown("""
         box-shadow: 0 2px 6px rgba(24, 119, 242, 0.25);
     }
 
-    /* 3. Khung Tiêu Đề Con: Nền trắng chữ xanh bo góc */
+    /* 3. Khung Tiêu Đề Con */
     .subsection-header-blue {
         background-color: #ffffff;
         color: #1877F2;
@@ -62,13 +62,35 @@ st.markdown("""
         box-shadow: 0 2px 4px rgba(0,0,0,0.03);
     }
 
-    /* Nút chọn Khối đơn vị kiểu thẻ bo góc */
+    /* 4. TÙY CHỈNH HIỆU ỨNG THẺ CHỌN KHỐI (Segmented Control) */
+    div[data-testid="stSegmentedControl"] {
+        background-color: #f0f2f5;
+        padding: 6px;
+        border-radius: 10px;
+        border: 1px solid #e4e6eb;
+    }
+    
     div[data-testid="stSegmentedControl"] button {
         border-radius: 8px !important;
         font-weight: 600 !important;
+        border: none !important;
+        transition: all 0.2s ease-in-out !important;
     }
 
-    /* Nút bấm Tải lên chuẩn màu xanh Facebook */
+    /* Hiệu ứng trỏ chuột vào (Hover) đổi sang màu xanh sáng nhẹ */
+    div[data-testid="stSegmentedControl"] button:hover {
+        background-color: #e7f3ff !important;
+        color: #1877F2 !important;
+    }
+
+    /* Thẻ đang được chọn (Active): Nền xanh Facebook, chữ trắng */
+    div[data-testid="stSegmentedControl"] button[aria-selected="true"] {
+        background-color: #1877F2 !important;
+        color: #ffffff !important;
+        box-shadow: 0 2px 6px rgba(24, 119, 242, 0.35);
+    }
+
+    /* 5. Nút bấm Tải lên */
     .stButton > button {
         background-color: #1877F2;
         color: white;
@@ -87,10 +109,8 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# BANNER TIÊU ĐỀ CHÍNH ÔM GỌN CHỮ
 st.markdown('<div class="main-banner-blue">Quản Lý và Cập Nhật Dữ Liệu Báo Cáo OGSM</div>', unsafe_allow_html=True)
 
-# Phân loại chuẩn 29 đơn vị UMP
 UNIT_GROUPS = {
     "Khối Phòng chức năng": {
         "P.HCTH": "Phòng Hành chính Tổng hợp",
@@ -108,7 +128,7 @@ UNIT_GROUPS = {
     "Khối Trường / Khoa": {
         "TRƯỜNG Y": "Trường Y",
         "T.DƯỢC": "Trường Dược",
-        "T.ĐD-KTYH": "Trường Điều dưỡng Kỹ thuật Y học",
+        "T.D-KTYH": "Trường Điều dưỡng Kỹ thuật Y học",
         "K.KHCB": "Khoa Khoa học Cơ bản",
         "K.YHCT": "Khoa Y học Cổ truyền",
         "K.YTCC": "Khoa Y tế Công cộng",
@@ -189,7 +209,7 @@ try:
                             st.success(f"Đã cập nhật thành công báo cáo cho đơn vị **{selected_unit_label}**.")
                             st.cache_data.clear()
                         else:
-                            st.error("Không thể ghi đè file lên OneDrive. Vui lòng kiểm tra lại cấu hình kết nối.")
+                            st.error("Không thể ghi đè file lên OneDrive. Vuint lòng kiểm tra lại cấu hình kết nối.")
                     except Exception as ex:
                         st.error(f"Lỗi đọc định dạng file Excel: {ex}")
 
