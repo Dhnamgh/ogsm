@@ -1,6 +1,6 @@
 """
 Trang Quản lý dữ liệu OGSM - Đại học Y Dược TP.HCM
-Giao diện phân khối đơn vị, màu xanh Facebook nổi bật, tiếng Việt có dấu đầy đủ.
+Cập nhật đúng Khối Phòng chức năng và động theo Tab chọn đơn vị.
 """
 
 import sys
@@ -20,10 +20,9 @@ logger = get_logger()
 
 st.set_page_config(page_title="Quản Lý Dữ Liệu - OGSM Portal", layout="wide")
 
-# CSS tạo hiệu ứng màu xanh Facebook (#1877F2) cho Tab và hiệu ứng Hover nổi màu xanh
+# CSS màu xanh Facebook (#1877F2) và hiệu ứng Hover
 st.markdown("""
 <style>
-    /* Tab Khối đơn vị kiểu thẻ bo tròn */
     .stTabs [data-baseweb="tab-list"] {
         gap: 8px;
         background-color: #f0f2f5;
@@ -40,21 +39,17 @@ st.markdown("""
         border: 1px solid #e4e6eb;
         transition: all 0.2s ease-in-out;
     }
-    /* Hiệu ứng Hover con trỏ chuột trỏ vào Tab */
     .stTabs [data-baseweb="tab"]:hover {
         background-color: #e7f3ff !important;
         color: #1877F2 !important;
         border-color: #1877F2 !important;
     }
-    /* Tab đang được chọn */
     .stTabs [aria-selected="true"] {
         background-color: #1877F2 !important;
         color: #ffffff !important;
         border-color: #1877F2 !important;
         box-shadow: 0 2px 6px rgba(24, 119, 242, 0.3);
     }
-    
-    /* Nút bấm tải lên chuẩn màu Facebook */
     .stButton > button {
         background-color: #1877F2;
         color: white;
@@ -73,9 +68,9 @@ st.markdown("""
 
 st.title("Quản Lý và Cập Nhật Dữ Liệu Báo Cáo OGSM")
 
-# Phân loại 29 đơn vị theo khối chức năng
+# Phân loại chuẩn 29 đơn vị theo khối chức năng
 UNIT_GROUPS = {
-    "Khối Phòng Ban": {
+    "Khối Phòng chức năng": {
         "P.HCTH": "Phòng Hành chính Tổng hợp",
         "P.QTGT": "Phòng Quản trị Giáo tài",
         "P.TCCB": "Phòng Tổ chức Cán bộ",
@@ -126,25 +121,32 @@ try:
 
     with col_upload:
         st.write("**Bước 1: Chọn Khối Đơn Vị**")
-        group_tabs = st.tabs(list(UNIT_GROUPS.keys()))
+        group_names = list(UNIT_GROUPS.keys())
+        selected_group = st.radio(
+            "Chọn Khối:",
+            options=group_names,
+            horizontal=True,
+            key="radio_group_select"
+        )
         
-        selected_unit_code = None
+        st.markdown("---")
+        st.write(f"**Bước 2: Chọn Đơn vị thuộc [{selected_group}]**")
         
-        for i, (group_name, units_dict) in enumerate(UNIT_GROUPS.items()):
-            with group_tabs[i]:
-                st.write(f"**Bước 2: Chọn Đơn vị thuộc {group_name}**")
-                unit_options = [f"{k} - {v}" for k, v in units_dict.items()]
-                selected_item = st.radio(
-                    "Danh sách đơn vị:",
-                    options=unit_options,
-                    key=f"radio_mgmt_{i}",
-                    label_visibility="collapsed"
-                )
-                selected_unit_code = selected_item.split(" - ")[0]
+        units_dict = UNIT_GROUPS[selected_group]
+        unit_options = [f"{k} - {v}" for k, v in units_dict.items()]
+        
+        selected_unit_item = st.selectbox(
+            "Tên Đơn Vị Báo Cáo:",
+            options=unit_options,
+            key=f"select_unit_{selected_group}"
+        )
+        
+        # Lấy Mã đơn vị chính xác được chọn (ví dụ: "P.HCTH")
+        selected_unit_code = selected_unit_item.split(" - ")[0]
 
         st.markdown("---")
         uploaded_file = st.file_uploader(
-            f"Chọn file Excel báo cáo (.xlsx) cho đơn vị [{selected_unit_code}]:",
+            f"Chọn file Excel báo cáo (.xlsx) cho đơn vị [{selected_unit_item}]:",
             type=["xlsx"]
         )
 
@@ -161,7 +163,7 @@ try:
                         success = service.upload_unit_file(target_filename, file_bytes)
                         
                         if success:
-                            st.success(f"Đã cập nhật thành công báo cáo cho đơn vị **{selected_unit_code}**.")
+                            st.success(f"Đã cập nhật thành công báo cáo cho đơn vị **{selected_unit_item}**.")
                             st.cache_data.clear()
                         else:
                             st.error("Không thể ghi đè file lên OneDrive. Vui lòng kiểm tra lại cấu hình kết nối.")
@@ -173,7 +175,7 @@ try:
         **Hướng dẫn cập nhật định kỳ:**
         1. Sử dụng file Excel khung mẫu OGSM 2025–2029 của Nhà trường.
         2. Cập nhật kết quả thực hiện vào cột **`Tỷ lệ đạt (%)`** (Trạng thái sẽ tự động được tính theo công thức sẵn trong file Excel).
-        3. Chọn đúng **Khối Đơn Vị** và **Tên Đơn Vị** từ các Tab phân cấp, sau đó bấm **Tải Lên và Cập Nhật Báo Cáo**.
+        3. Chọn đúng **Khối Đơn Vị** và **Tên Đơn Vị**, sau đó bấm **Tải Lên và Cập Nhật Báo Cáo**.
         4. Hệ thống sẽ tự động tổng hợp vào báo cáo chung của Đại học Y Dược TP.HCM.
         """)
 
