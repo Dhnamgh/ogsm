@@ -1,66 +1,88 @@
 """
-OGSM Service - Quản lý nạp, tổng hợp và lưu trữ dữ liệu báo cáo OGSM.
+OGSM Service - Tự động tìm và đọc toàn bộ tệp Excel dữ liệu OGSM từ OneDrive / DATA folder.
 """
 
 import os
 import io
+import requests
 from pathlib import Path
 import pandas as pd
 from logger import get_logger
 
 logger = get_logger()
 
-# Đường dẫn thư mục lưu dữ liệu Excel
 BASE_DIR = Path(__file__).resolve().parent
-DATA_DIR = BASE_DIR / "DATA"
-
-# Tự động tạo thư mục DATA nếu chưa tồn tại
-if not DATA_DIR.exists():
-    DATA_DIR.mkdir(parents=True, exist_ok=True)
-
 
 class OGSMService:
-    def __init__(self, data_folder: Path = DATA_DIR):
-        self.data_folder = data_folder
+    def __init__(self, data_folder: Path = None):
+        if data_folder is None:
+            found_dir = None
+            for p in BASE_DIR.glob("*"):
+                if p.is_dir() and p.name.lower() == "data":
+                    found_dir = p
+                    break
+            self.data_folder = found_dir if found_dir else (BASE_DIR / "DATA")
+        else:
+            self.data_folder = data_folder
 
-    def upload_unit_file(self, filename: str, file_bytes: bytes) -> bool:
-        """
-        Lưu hoặc ghi đè file báo cáo Excel của đơn vị vào thư mục DATA.
-        """
-        try:
-            target_path = self.data_folder / filename
-            with open(target_path, "wb") as f:
-                f.write(file_bytes)
-            logger.info(f"Đã lưu thành công file {filename} vào {target_path}")
-            return True
-        except Exception as e:
-            logger.error(f"Lỗi khi lưu file {filename}: {e}")
-            return False
+        if not self.data_folder.exists():
+            self.data_folder.mkdir(parents=True, exist_ok=True)
 
     def get_full_ogsm_data(self) -> pd.DataFrame:
-        """
-        Đọc tất cả các file Excel (.xlsx) trong thư mục DATA và gộp lại thành DataFrame tổng hợp.
-        """
         all_dfs = []
-        if not self.data_folder.exists():
-            return pd.DataFrame()
 
-        for file_path in self.data_folder.glob("*.xlsx"):
-            if file_path.name.startswith("~$"):
-                continue  # Bỏ qua file tạm của Excel
+        # 1. Ưu tiên tìm trong các thư mục DATA cục bộ hoặc bộ nhớ tạm
+        search_paths = [
+            self.data_folder,
+            BASE_DIR,
+            BASE_DIR / "data",
+            Path("/tmp")
+        ]
+
+        excel_files = []
+        for path in search_paths:
+            if path.exists():
+                excel_files.extend(list(path.glob("*.xlsx")) + list(path.glob("**/*.xlsx")))
+
+        # Loại bỏ các file trùng lặp và file tạm của Excel (~$)
+        unique_files = {}
+        for f in excel_files:
+            if not f.name.startswith("~$") and "TEMPLATE" not in f.name.upper():
+                unique_files[f.name] = f
+
+        # 2. Đọc tất cả các tệp tìm thấy
+        for file_name, file_path in unique_files.items():
             try:
                 df = pd.read_excel(file_path, engine="openpyxl")
-                unit_code = file_path.stem  # Lấy tên file làm Mã Đơn vị (ví dụ: BV ĐHYD, HCTH)
-                
-                # Đảm bảo có cột Unit_Code
-                if "Unit_Code" not in df.columns:
-                    df["Unit_Code"] = unit_code
-                    
+                if df.empty:
+                    continue
+
+                # Chuẩn hóa tên cột safe-string
+                df.columns = [str(c).strip() for c in df.columns]
+
+                # Đổi tên cột chuẩn hóa
+                for col in list(df.columns):
+                    c_low = str(col).lower()
+                    if any(k in c_low for k in ["objective_id", "stt_o", "mã o", "mục tiêu chiến lược", "objective"]):
+                        df.rename(columns={col: "Objective_ID"}, inplace=True)
+                    elif any(k in c_low for k in ["goal_id", "strategy_id", "stt_g", "stt_s", "mã g", "mã s", "goal", "strategy"]):
+                        df.rename(columns={col: "Goal_ID"}, inplace=True)
+                    elif any(k in c_low for k in ["measure_id", "stt_m", "mã m", "mã kpi", "measure", "kpi"]):
+                        df.rename(columns={col: "Measure_ID"}, inplace=True)
+                    elif any(k in c_low for k in ["status", "trạng thái", "tiến độ", "đánh giá"]):
+                        df.rename(columns={col: "Status"}, inplace=True)
+
+                if "Status" not in df.columns:
+                    df["Status"] = "Chưa đến hạn"
+
+                unit_code = file_path.stem.replace(".xlsx", "").strip()
+                df["Unit_Code"] = unit_code
+
                 all_dfs.append(df)
             except Exception as e:
-                logger.error(f"Không thể đọc file {file_path.name}: {e}")
+                logger.error(f"Lỗi khi đọc file {file_path.name}: {e}")
 
         if all_dfs:
-            master_df = pd.concat(all_dfs, ignore_index=True)
-            return master_df
+            return pd.concat(all_dfs, ignore_index=True)
+
         return pd.DataFrame()
