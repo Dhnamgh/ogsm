@@ -1,10 +1,10 @@
 """
-OGSM Service - Đọc và lưu dữ liệu trực tiếp chuẩn xác từ OneDrive / Thư mục DATA.
+OGSM Service - Quản lý nạp, tổng hợp và lưu trữ dữ liệu báo cáo OGSM.
+Khôi phục cơ chế lưu/đọc file trực tiếp trên Streamlit Cloud, tự động khôi phục cấu trúc O, G, M.
 """
 
 import os
 import io
-import re
 from pathlib import Path
 import pandas as pd
 from logger import get_logger
@@ -14,16 +14,17 @@ logger = get_logger()
 BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = BASE_DIR / "DATA"
 
-if not DATA_DIR.exists():
-    DATA_DIR.mkdir(parents=True, exist_ok=True)
+# Tự động tạo thư mục DATA nếu chưa có
+DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 
 class OGSMService:
     def __init__(self, data_folder: Path = DATA_DIR):
         self.data_folder = data_folder
+        self.data_folder.mkdir(parents=True, exist_ok=True)
 
     def upload_unit_file(self, filename: str, file_bytes: bytes) -> bool:
-        """Lưu file vào cả thư mục local DATA của server lẫn sẵn sàng cho OneDrive."""
+        """Ghi đè hoặc tạo mới file báo cáo Excel vào thư mục DATA trên hệ thống."""
         try:
             target_path = self.data_folder / filename
             with open(target_path, "wb") as f:
@@ -35,26 +36,31 @@ class OGSMService:
             return False
 
     def get_full_ogsm_data(self) -> pd.DataFrame:
-        """Đọc chuẩn xác tất cả file Excel trong DATA mà không làm mất cột Objective_ID và Goal_ID."""
+        """Đọc và tổng hợp tất cả các file Excel hiện có trong thư mục DATA."""
         all_dfs = []
         if not self.data_folder.exists():
             return pd.DataFrame()
 
-        for file_path in self.data_folder.glob("*.xlsx"):
+        # Quét tất cả file .xlsx trong DATA
+        excel_files = list(self.data_folder.glob("*.xlsx"))
+
+        for file_path in excel_files:
             if file_path.name.startswith("~$"):
                 continue  # Bỏ qua file tạm Excel
             try:
                 df = pd.read_excel(file_path, engine="openpyxl")
-                
-                # Làm sạch tên cột gốc (xóa khoảng trắng thừa)
+                if df.empty:
+                    continue
+
+                # Làm sạch tên cột
                 df.columns = [str(c).strip() for c in df.columns]
 
-                # Chuẩn hóa tên cột Mã đơn vị từ tên file (Ví dụ: P.HCTH.xlsx -> HCTH hoặc P.HCTH)
-                raw_code = file_path.stem.replace(".xlsx", "").strip()
-                df["Unit_Code"] = raw_code
+                # Gán mã đơn vị từ tên file
+                unit_code = file_path.stem.replace(".xlsx", "").strip()
+                df["Unit_Code"] = unit_code
 
-                # Map linh hoạt cột Objectives nếu bị lệch tên nhẹ
-                for col in df.columns:
+                # Ánh xạ tên cột chuẩn mà không xoá dữ liệu gốc
+                for col in list(df.columns):
                     c_lower = col.lower()
                     if c_lower in ["objective_id", "stt_o", "mã o", "mục tiêu chiến lược", "objective"]:
                         df.rename(columns={col: "Objective_ID"}, inplace=True)
@@ -70,4 +76,5 @@ class OGSMService:
         if all_dfs:
             master_df = pd.concat(all_dfs, ignore_index=True)
             return master_df
+
         return pd.DataFrame()
