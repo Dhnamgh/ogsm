@@ -48,16 +48,17 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
-def normalize_code(code_str: str) -> str:
-    if not code_str or not isinstance(code_str, str):
+def normalize_code(code_val) -> str:
+    if pd.isna(code_val) or code_val is None:
         return ""
-    s = code_str.upper().replace(".XLSX", "").strip()
+    s = str(code_val).upper().replace(".XLSX", "").strip()
     s = re.sub(r"^(P\.|T\.|K\.|TT\.|PK\.|BV\.)", "", s)
     s = re.sub(r"[^\w]", "", s)
     return s
 
 
 try:
+    import pandas as pd
     from ogsm_service import OGSMService
     from analytics_service import OGSMAnalyticsService
     from metrics_cards import render_metrics_cards
@@ -81,9 +82,10 @@ try:
     service = OGSMService()
     df_all = service.get_full_ogsm_data()
 
-    if df_all is not None and not df_all.empty:
+    if isinstance(df_all, pd.DataFrame) and not df_all.empty:
+        # Chuẩn hóa cột Unit_Code an toàn theo từng dòng
         if "Unit_Code" in df_all.columns:
-            df_all["Norm_Code"] = df_all["Unit_Code"].astype(str).apply(normalize_code)
+            df_all["Norm_Code"] = df_all["Unit_Code"].apply(normalize_code)
         else:
             df_all["Norm_Code"] = ""
 
@@ -102,7 +104,7 @@ try:
             target_norm_codes = UNIT_GROUPS[selected_group]
             df_filtered = df_all[df_all["Norm_Code"].isin(target_norm_codes)]
 
-        # Hiển thị KPIs
+        # Hiển thị số liệu KPIs
         kpis = OGSMAnalyticsService.compute_summary_kpis(df_filtered)
         render_metrics_cards(kpis)
 
@@ -124,7 +126,7 @@ try:
         st.plotly_chart(fig_bar_all, use_container_width=True)
 
     else:
-        st.warning("Chưa nạp được dữ liệu báo cáo. Vui lòng kiểm tra lại thư mục DATA.")
+        st.warning("Chưa có dữ liệu báo cáo nào trong hệ thống.")
 
 except Exception as e:
     st.error(f"Lỗi nạp trang Dashboard: {e}")
