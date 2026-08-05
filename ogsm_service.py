@@ -1,6 +1,6 @@
 """
 OGSM Service - Quản lý nạp, tổng hợp, chuẩn hóa và lưu trữ dữ liệu báo cáo OGSM.
-Bộ ánh xạ dữ liệu thông minh chống lệch cột Objectives / Goals.
+Hỗ trợ đọc chuẩn xác dữ liệu ngay cả khi file Excel bỏ trống ô do gộp ô (Merged Cells).
 """
 
 import os
@@ -42,32 +42,23 @@ class OGSMService:
             col_clean = str(col).strip().lower()
             mapped_name = str(col).strip()
 
-            # Nhận diện cột Objectives (O)
-            if any(k in col_clean for k in ["objective_id", "mục tiêu chiến lược", "mục tiêu chung", "stt_o", "mã o", "objectives", "objective"]):
+            if any(k in col_clean for k in ["objective_id", "mã o", "mục tiêu chiến lược", "objective"]):
                 mapped_name = "Objective_ID"
-            # Nhận diện cột Goals / Strategies (G/S)
-            elif any(k in col_clean for k in ["goal_id", "strategy_id", "mục tiêu cụ thể", "chiến lược", "chỉ tiêu", "stt_g", "stt_s", "goals", "goal", "strategy"]):
+            elif any(k in col_clean for k in ["goal_id", "strategy_id", "mã g", "mã s", "mục tiêu cụ thể", "chiến lược", "goal", "strategy"]):
                 mapped_name = "Goal_ID"
-            # Nhận diện cột Measures / KPIs (M)
-            elif any(k in col_clean for k in ["measure_id", "mã kpi", "chỉ số đo lường", "measures", "measure", "kpi_id", "kpi"]):
+            elif any(k in col_clean for k in ["measure_id", "mã m", "mã kpi", "measure", "kpi"]):
                 mapped_name = "Measure_ID"
-            # Nhận diện cột Mô tả Measure
-            elif any(k in col_clean for k in ["measure_desc", "nội dung", "mô tả", "biện pháp", "tên kpi"]):
+            elif any(k in col_clean for k in ["measure_desc", "nội dung", "mô tả", "biện pháp"]):
                 mapped_name = "Measure_Desc"
-            # Nhận diện cột Năm
             elif any(k in col_clean for k in ["target_year", "năm hoàn thành", "năm", "thời gian"]):
                 mapped_name = "Target_Year"
-            # Nhận diện cột Chỉ tiêu đặt ra
-            elif any(k in col_clean for k in ["target", "chỉ tiêu giao", "mục tiêu đặt ra", "kế hoạch"]):
+            elif any(k in col_clean for k in ["target", "chỉ tiêu giao", "mục tiêu đặt ra"]):
                 mapped_name = "Target"
-            # Nhận diện cột Thực hiện / Kết quả
-            elif any(k in col_clean for k in ["actual", "thực hiện", "kết quả", "đạt được", "tỷ lệ đạt"]):
+            elif any(k in col_clean for k in ["actual", "thực hiện", "kết quả", "tỷ lệ đạt"]):
                 mapped_name = "Actual"
-            # Nhận diện cột Trạng thái
-            elif any(k in col_clean for k in ["status", "trạng thái", "tiến độ", "đánh giá"]):
+            elif any(k in col_clean for k in ["status", "trạng thái", "tiến độ"]):
                 mapped_name = "Status"
 
-            # Đảm bảo tên cột không bị trùng
             if mapped_name in seen_cols:
                 suffix = 1
                 while f"{mapped_name}_{suffix}" in seen_cols:
@@ -79,7 +70,7 @@ class OGSMService:
 
         df.columns = new_cols
 
-        # Bổ sung cột nếu thiếu
+        # Đảm bảo đủ các cột cơ bản
         for c in ["Unit_Code", "Objective_ID", "Goal_ID", "Measure_ID", "Measure_Desc", "Target", "Actual", "Status", "Target_Year"]:
             if c not in df.columns:
                 df[c] = ""
