@@ -1,5 +1,5 @@
 """
-OGSM Analytics Service - Thuật toán đếm linh hoạt và chính xác cho Objectives, Goals, Measures.
+OGSM Analytics Service - Thuật toán đếm và tính toán chỉ số OGSM chuẩn xác.
 """
 
 import pandas as pd
@@ -18,42 +18,39 @@ class OGSMAnalyticsService:
                 "completed_measures": 0
             }
 
-        df_calc = df.copy()
-
-        # 1. Đếm Objectives (Ưu tiên đếm theo ID, nếu trống thì đếm theo cột Nội dung)
+        # 1. Tìm cột Objectives và đếm
         total_objectives = 0
-        obj_cols = [c for c in df_calc.columns if any(k in c.lower() for k in ["objective", "mục tiêu"])]
-        for col in obj_cols:
-            # Forward fill nếu dữ liệu bị trống do gộp ô Excel
-            s = df_calc[col].astype(str).str.strip().replace(["nan", "None", "NaN", ""], None).ffill()
-            valid_s = s.dropna()
-            if not valid_s.empty:
-                total_objectives = valid_s.nunique()
-                break
+        for col in df.columns:
+            if any(k in col.lower() for k in ["objective", "mục tiêu chiến lược", "mục tiêu chung", "stt_o", "mã o"]):
+                valid = df[col].dropna().astype(str).str.strip()
+                valid = valid[~valid.isin(["", "nan", "None"])]
+                if not valid.empty:
+                    total_objectives = valid.nunique()
+                    break
 
-        # 2. Đếm Goals / Strategies (Ưu tiên đếm ID, nếu trống đếm theo Nội dung)
+        # 2. Tìm cột Goals / Strategies và đếm
         total_goals = 0
-        goal_cols = [c for c in df_calc.columns if any(k in c.lower() for k in ["goal", "strategy", "chiến lược", "chỉ tiêu"])]
-        for col in goal_cols:
-            s = df_calc[col].astype(str).str.strip().replace(["nan", "None", "NaN", ""], None).ffill()
-            valid_s = s.dropna()
-            if not valid_s.empty:
-                total_goals = valid_s.nunique()
-                break
+        for col in df.columns:
+            if any(k in col.lower() for k in ["goal", "strategy", "mục tiêu cụ thể", "chiến lược", "chỉ tiêu", "stt_g", "stt_s", "mã g", "mã s"]):
+                valid = df[col].dropna().astype(str).str.strip()
+                valid = valid[~valid.isin(["", "nan", "None"])]
+                if not valid.empty:
+                    total_goals = valid.nunique()
+                    break
 
-        # 3. Đếm Measures / KPIs (Đếm tổng số dòng hoạt động)
-        total_measures = len(df_calc)
+        # 3. Đếm số Measures
+        total_measures = len(df)
 
-        # 4. Thống kê tiến độ hoàn thành
-        completed_measures = 0
+        # 4. Tính phần trăm hoàn thành
         status_col = None
-        for col in df_calc.columns:
-            if "status" in col.lower() or "trạng thái" in col.lower():
+        for col in df.columns:
+            if any(k in col.lower() for k in ["status", "trạng thái", "tiến độ"]):
                 status_col = col
                 break
 
+        completed_measures = 0
         if status_col:
-            status_clean = df_calc[status_col].astype(str).str.strip().str.lower()
+            status_clean = df[status_col].dropna().astype(str).str.strip().str.lower()
             completed_measures = len(status_clean[status_clean == "hoàn thành"])
 
         avg_completion_rate = (completed_measures / total_measures * 100) if total_measures > 0 else 0.0
@@ -73,7 +70,7 @@ class OGSMAnalyticsService:
 
         status_col = None
         for col in df.columns:
-            if "status" in col.lower() or "trạng thái" in col.lower():
+            if any(k in col.lower() for k in ["status", "trạng thái", "tiến độ"]):
                 status_col = col
                 break
 
