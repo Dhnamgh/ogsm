@@ -1,6 +1,6 @@
 """
 Trang Quản lý dữ liệu OGSM - Đại học Y Dược TP.HCM
-Thiết kế Tab chữ trắng nền xanh bo 4 góc, Tiêu đề trong Tab chữ xanh nền trắng nổi bật.
+Toàn bộ tiêu đề và tiêu đề con chuẩn chữ xanh nền trắng, hoàn toàn không sử dụng emoji/biểu tượng.
 """
 
 import sys
@@ -20,17 +20,17 @@ logger = get_logger()
 
 st.set_page_config(page_title="Quản Lý Dữ Liệu - OGSM Portal", layout="wide")
 
-# CSS Thiết kế Tab chữ trắng nền xanh bo 4 góc & Tiêu đề trong Tab chữ xanh nền trắng
+# Bộ CSS chuẩn hóa tiêu đề chữ xanh trên nền trắng & Tab chữ trắng nền xanh
 st.markdown("""
 <style>
-    /* 1. Khung chứa danh sách các Tab */
+    /* 1. Khung chứa danh sách Tab */
     .stTabs [data-baseweb="tab-list"] {
         gap: 10px;
         background-color: transparent;
         padding: 6px 0px;
     }
 
-    /* 2. Thẻ Tab mặc định: Chữ trắng trên nền xanh, bo tròn cả 4 góc */
+    /* 2. Thẻ Tab chính: Chữ trắng trên nền xanh, bo tròn 4 góc */
     .stTabs [data-baseweb="tab"] {
         height: 44px;
         background-color: #1877F2 !important;
@@ -44,7 +44,7 @@ st.markdown("""
         box-shadow: 0 2px 5px rgba(24, 119, 242, 0.2);
     }
 
-    /* 3. HIỆU ỨNG HOVER: Khi trỏ con trỏ chuột vào Tab */
+    /* 3. Hiệu ứng Hover con trỏ chuột vào Tab */
     .stTabs [data-baseweb="tab"]:hover {
         background-color: #166fe5 !important;
         color: #ffffff !important;
@@ -53,24 +53,36 @@ st.markdown("""
         cursor: pointer;
     }
 
-    /* 4. Tab đang được chọn (Active) */
+    /* 4. Tab đang chọn (Active) */
     .stTabs [aria-selected="true"] {
         background-color: #0b51c5 !important;
         color: #ffffff !important;
         box-shadow: 0 4px 10px rgba(11, 81, 197, 0.5) !important;
     }
 
-    /* 5. Tiêu đề trong Tab: Chữ xanh trên nền trắng nổi bật */
-    .tab-inner-header {
+    /* 5. TIÊU ĐỀ LỚN & TIÊU ĐỀ CON: Chữ xanh trên nền trắng nổi bật, bo góc */
+    .section-header-blue {
         background-color: #ffffff;
         color: #1877F2;
         padding: 12px 18px;
         border-radius: 8px;
         border-left: 5px solid #1877F2;
-        font-size: 16px;
+        font-size: 18px;
         font-weight: 700;
-        margin: 12px 0px 16px 0px;
+        margin: 14px 0px 14px 0px;
         box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+    }
+
+    .subsection-header-blue {
+        background-color: #ffffff;
+        color: #1877F2;
+        padding: 10px 16px;
+        border-radius: 8px;
+        border-left: 4px solid #1877F2;
+        font-size: 15px;
+        font-weight: 700;
+        margin: 10px 0px 12px 0px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.04);
     }
 
     /* Styling nút bấm Tải lên */
@@ -92,7 +104,7 @@ st.markdown("""
 
 st.title("Quản Lý và Cập Nhật Dữ Liệu Báo Cáo OGSM")
 
-# Danh sách phân loại 29 đơn vị theo khối chức năng chuẩn UMP
+# Phân loại 29 đơn vị theo khối chức năng chuẩn UMP
 UNIT_GROUPS = {
     "Khối Phòng chức năng": {
         "P.HCTH": "Phòng Hành chính Tổng hợp",
@@ -139,19 +151,19 @@ try:
     service = OGSMService()
     
     st.markdown("---")
-    st.subheader("Cập Nhật Báo Cáo Cho Đơn Vị")
+    # Tiêu đề lớn: Chữ xanh trên nền trắng
+    st.markdown('<div class="section-header-blue">Cập Nhật Báo Cáo Cho Đơn Vị</div>', unsafe_allow_html=True)
     
     col_upload, col_guide = st.columns([1.2, 0.8])
 
     with col_upload:
-        st.markdown('<div class="tab-inner-header">Bước 1: Chọn Khối Đơn Vị Báo Cáo</div>', unsafe_allow_html=True)
+        st.markdown('<div class="subsection-header-blue">Bước 1: Chọn Khối Đơn Vị Báo Cáo</div>', unsafe_allow_html=True)
         
         group_tabs = st.tabs(list(UNIT_GROUPS.keys()))
         
         for i, (group_name, units_dict) in enumerate(UNIT_GROUPS.items()):
             with group_tabs[i]:
-                # Tiêu đề bên trong Tab: Chữ xanh trên nền trắng
-                st.markdown(f'<div class="tab-inner-header">Bước 2: Danh sách Đơn vị thuộc [{group_name}]</div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="subsection-header-blue">Bước 2: Danh sách Đơn vị thuộc [{group_name}]</div>', unsafe_allow_html=True)
                 
                 unit_options = [f"{k} - {v}" for k, v in units_dict.items()]
                 st.selectbox(
@@ -162,14 +174,16 @@ try:
 
         st.markdown("---")
         
-        # Danh sách phẳng phục vụ xác nhận tải lên chính xác
+        # Tiêu đề con: Xác nhận Đơn Vị Tải Lên Báo Cáo (Chữ xanh nền trắng, không emoji)
+        st.markdown('<div class="subsection-header-blue">Xác nhận Đơn Vị Tải Lên Báo Cáo</div>', unsafe_allow_html=True)
+        
         all_flatten_units = []
         for g_units in UNIT_GROUPS.values():
             for k, v in g_units.items():
                 all_flatten_units.append(f"{k} - {v}")
                 
         final_selected_unit = st.selectbox(
-            "📍 Xác nhận Đơn Vị Tải Lên Báo Cáo:",
+            "Đơn Vị Được Chọn:",
             options=all_flatten_units,
             key="final_confirm_unit_select"
         )
@@ -211,7 +225,8 @@ try:
         """)
 
     st.markdown("---")
-    st.subheader("Xem Dữ Liệu Báo Cáo Đã Tải Lên")
+    # Tiêu đề lớn: Xem Dữ Liệu Báo Cáo Đã Tải Lên (Chữ xanh nền trắng)
+    st.markdown('<div class="section-header-blue">Xem Dữ Liệu Báo Cáo Đã Tải Lên</div>', unsafe_allow_html=True)
 
     df_master = service.get_full_ogsm_data()
 
