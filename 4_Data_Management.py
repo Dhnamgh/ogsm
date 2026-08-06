@@ -1,6 +1,6 @@
 """
 Trang Data Management - Quản lý & Tải dữ liệu OGSM
-Bổ sung Khối Bộ môn (7 Bộ môn) vào danh sách quản lý dữ liệu.
+Khắc phục lỗi gọi tên hàm lưu file save_unit_dataframe.
 """
 
 import sys
@@ -181,7 +181,16 @@ try:
             if st.button("🚀 Cập nhật tệp dữ liệu lên OneDrive", type="primary"):
                 try:
                     df_up = pd.read_excel(uploaded_file, engine="openpyxl")
-                    success = service.save_unit_data(file_target_name, df_up)
+                    
+                    # Gọi hàm lưu file đa luồng tương thích
+                    success = False
+                    if hasattr(service, "save_unit_dataframe"):
+                        success = service.save_unit_dataframe(file_target_name, df_up)
+                    elif hasattr(service, "repository") and hasattr(service.repository, "save_unit_dataframe"):
+                        success = service.repository.save_unit_dataframe(file_target_name, df_up)
+                    elif hasattr(service, "save_unit_data"):
+                        success = service.save_unit_data(file_target_name, df_up)
+
                     if success:
                         st.success(f"✅ Đã cập nhật tệp dữ liệu thành công cho **{selected_unit}**!")
                         st.cache_data.clear()
