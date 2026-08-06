@@ -1,6 +1,7 @@
 """
 Trang Executive Dashboard - Đại học Y Dược TP.HCM
-Hỗ trợ Khối Bộ môn thử nghiệm & 29 Đơn vị chính thức.
+Cập nhật: "Tất cả đơn vị" chỉ tính 29 Đơn vị chính thức (loại trừ Khối Bộ môn).
+Khối Bộ môn chỉ thống kê riêng khi chọn "Tất cả Khối Bộ môn".
 """
 
 import sys
@@ -106,12 +107,12 @@ def get_ascii_key(text: str) -> str:
 
 
 def classify_unit_row(row):
-    """Phân loại chính xác các đơn vị & 7 bộ môn thử nghiệm vào Khối tương ứng"""
+    """Phân loại chính xác các đơn vị & Bộ môn thử nghiệm vào Khối tương ứng"""
     src = str(row.get("Source_File", ""))
     unit = str(row.get("Unit_Code", ""))
     key = get_ascii_key(src) or get_ascii_key(unit)
 
-    # 1. Khối Bộ môn thử nghiệm
+    # 1. Khối Bộ môn
     if key.startswith("BM") or "BOMON" in key:
         if "TOAN" in key: return ("BM.Toán", "Khối Bộ môn")
         if "LY" in key and "LLCT" not in key: return ("BM.Lý", "Khối Bộ môn")
@@ -189,10 +190,12 @@ try:
         df_all["Unit_Code"] = [m[0] for m in mapped_data]
         df_all["Unit_Group"] = [m[1] for m in mapped_data]
 
-        loaded_units = df_all["Unit_Code"].unique()
-        st.caption(f"Đã nạp thành công **{len(loaded_units)} Đơn vị / Bộ môn** vào hệ thống.")
+        loaded_main_units = df_all[df_all["Unit_Group"] != "Khối Bộ môn"]["Unit_Code"].unique()
+        loaded_bm_units = df_all[df_all["Unit_Group"] == "Khối Bộ môn"]["Unit_Code"].unique()
+        
+        st.caption(f"Đã nạp **{len(loaded_main_units)} Đơn vị chính thức** và **{len(loaded_bm_units)} Bộ môn**.")
 
-        # DANH SÁCH KHỐI BAO GỒM KHỐI BỘ MÔN
+        # DANH SÁCH KHỐI HiỂN THỊ
         GROUPS_LIST = [
             "Tất cả đơn vị",
             "Khối Phòng chức năng",
@@ -236,17 +239,23 @@ try:
                 st.info(f"Chưa có tệp dữ liệu nào thuộc {selected_group}.")
                 selected_unit = f"GROUP:{selected_group}"
 
-        # Lọc dữ liệu chính xác
+        # LỌC DỮ LIỆU BÁO CÁO CHUẨN XÁC
         df_filtered = df_all.copy()
+        
         if selected_unit == "Tất Cả Đơn Vị (Toàn Trường)":
-            pass
+            # TÁCH BIỆT: Tất cả đơn vị CHỈ tính 29 Đơn vị chính thức (LOẠI TRỪ Khối Bộ môn)
+            df_filtered = df_all[df_all["Unit_Group"] != "Khối Bộ môn"]
+            st.caption("Đại học Y Dược TP. Hồ Chí Minh - Báo Cáo Tổng Hợp Toàn Trường (29 Đơn Vị Chính Thức)")
         elif selected_unit.startswith("GROUP:"):
             g_name = selected_unit.replace("GROUP:", "")
             df_filtered = df_all[df_all["Unit_Group"] == g_name]
-            st.caption(f"Báo Cáo Tổng Hợp: **{g_name}**")
+            if g_name == "Khối Bộ môn":
+                st.caption("Báo Cáo Tổng Hợp: **Tất Cả Các Bộ Môn**")
+            else:
+                st.caption(f"Báo Cáo Tổng Hợp: **{g_name}**")
         else:
             df_filtered = df_all[df_all["Unit_Code"] == selected_unit]
-            st.caption(f"Báo Cáo Tiến Độ Đơn Vị: **{selected_unit}**")
+            st.caption(f"Báo Cáo Tiến Độ Đơn Vị / Bộ Môn: **{selected_unit}**")
 
         kpis = OGSMAnalyticsService.compute_summary_kpis(df_filtered)
         render_metrics_cards(kpis)
