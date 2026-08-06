@@ -1,29 +1,42 @@
 """
-Trang Quản lý dữ liệu OGSM - Đại học Y Dược TP.HCM
-Cấu hình CSS hiệu ứng Hover & Active màu xanh cho thanh chọn khối đơn vị.
+Trang Data Management - Quản lý & Tải dữ liệu OGSM
+Bổ sung Khối Bộ môn (7 Bộ môn) vào danh sách quản lý dữ liệu.
 """
 
 import sys
 from pathlib import Path
 
-ROOT_DIR = Path(__file__).resolve().parent.parent
+ROOT_DIR = Path(__file__).resolve().parent
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
 import io
 import pandas as pd
 import streamlit as st
-from ogsm_service import OGSMService
-from logger import get_logger
 
-logger = get_logger()
+st.set_page_config(page_title="Data Management - Đại học Y Dược TP.HCM", layout="wide")
 
-st.set_page_config(page_title="Quản Lý Dữ Liệu - OGSM Portal", layout="wide")
-
-# CSS tùy chỉnh hiệu ứng Hover & Active màu xanh cho thanh chọn Khối đơn vị (segmented_control)
+# CSS giao diện
 st.markdown("""
 <style>
-    /* 1. Banner Tiêu Đề Chính */
+    [data-testid="stSidebarNav"] ul li a svg { display: none !important; }
+    [data-testid="stSidebarNav"] ul li a {
+        border-radius: 8px !important;
+        padding: 10px 14px !important;
+        margin: 3px 0px !important;
+        font-weight: 600 !important;
+        transition: all 0.2s ease-in-out !important;
+    }
+    [data-testid="stSidebarNav"] ul li a:hover {
+        background-color: #e7f3ff !important;
+        color: #1877F2 !important;
+        transform: translateX(4px);
+    }
+    [data-testid="stSidebarNav"] ul li a[aria-current="page"] {
+        background-color: #1877F2 !important;
+        color: #ffffff !important;
+        box-shadow: 0 3px 8px rgba(24, 119, 242, 0.35) !important;
+    }
     .main-banner-blue {
         display: inline-block;
         background: #1877F2;
@@ -35,8 +48,6 @@ st.markdown("""
         box-shadow: 0 4px 10px rgba(24, 119, 242, 0.3);
         margin-bottom: 20px;
     }
-
-    /* 2. Banner Mục Lớn */
     .section-banner-blue {
         display: inline-block;
         background-color: #1877F2;
@@ -48,8 +59,6 @@ st.markdown("""
         margin: 14px 0px 14px 0px;
         box-shadow: 0 2px 6px rgba(24, 119, 242, 0.25);
     }
-
-    /* 3. Khung Tiêu Đề Con */
     .subsection-header-blue {
         background-color: #ffffff;
         color: #1877F2;
@@ -61,190 +70,155 @@ st.markdown("""
         margin: 8px 0px 10px 0px;
         box-shadow: 0 2px 4px rgba(0,0,0,0.03);
     }
-
-    /* 4. TÙY CHỈNH HIỆU ỨNG THẺ CHỌN KHỐI (Segmented Control) */
-    div[data-testid="stSegmentedControl"] {
+    div[data-testid="stRadio"] > div {
         background-color: #f0f2f5;
         padding: 6px;
         border-radius: 10px;
         border: 1px solid #e4e6eb;
     }
-    
-    div[data-testid="stSegmentedControl"] button {
+    div[data-testid="stRadio"] label {
+        background-color: #ffffff !important;
         border-radius: 8px !important;
+        padding: 8px 16px !important;
+        margin-right: 6px !important;
         font-weight: 600 !important;
-        border: none !important;
+        border: 1px solid #e4e6eb !important;
         transition: all 0.2s ease-in-out !important;
+        cursor: pointer !important;
     }
-
-    /* Hiệu ứng trỏ chuột vào (Hover) đổi sang màu xanh sáng nhẹ */
-    div[data-testid="stSegmentedControl"] button:hover {
+    div[data-testid="stRadio"] label:hover {
         background-color: #e7f3ff !important;
         color: #1877F2 !important;
-    }
-
-    /* Thẻ đang được chọn (Active): Nền xanh Facebook, chữ trắng */
-    div[data-testid="stSegmentedControl"] button[aria-selected="true"] {
-        background-color: #1877F2 !important;
-        color: #ffffff !important;
-        box-shadow: 0 2px 6px rgba(24, 119, 242, 0.35);
-    }
-
-    /* 5. Nút bấm Tải lên */
-    .stButton > button {
-        background-color: #1877F2;
-        color: white;
-        border-radius: 8px;
-        font-weight: bold;
-        border: none;
-        padding: 10px 24px;
-        font-size: 15px;
-        transition: all 0.2s;
-        box-shadow: 0 4px 10px rgba(24, 119, 242, 0.3);
-    }
-    .stButton > button:hover {
-        background-color: #166fe5;
-        box-shadow: 0 6px 14px rgba(22, 111, 229, 0.4);
+        border-color: #1877F2 !important;
     }
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown('<div class="main-banner-blue">Quản Lý và Cập Nhật Dữ Liệu Báo Cáo OGSM</div>', unsafe_allow_html=True)
-
-UNIT_GROUPS = {
-    "Khối Phòng chức năng": {
-        "P.HCTH": "Phòng Hành chính Tổng hợp",
-        "P.QTGT": "Phòng Quản trị Giáo tài",
-        "P.TCCB": "Phòng Tổ chức Cán bộ",
-        "P.CTSV": "Phòng Công tác Sinh viên",
-        "P.KHCN": "Phòng Khoa học Công nghệ",
-        "P.HTQT": "Phòng Hợp tác Quốc tế",
-        "P.KHTC": "Phòng Kế hoạch Tài chính",
-        "P.TTPC": "Phòng Thanh tra Pháp chế",
-        "P.ĐTSĐH": "Phòng Đào tạo Sau đại học",
-        "P.ĐTĐH": "Phòng Đào tạo Đại học",
-        "P.ĐBCL": "Phòng Đảm bảo Chất lượng Giáo dục và Khảo thí"
-    },
-    "Khối Trường / Khoa": {
-        "TRƯỜNG Y": "Trường Y",
-        "T.DƯỢC": "Trường Dược",
-        "T.D-KTYH": "Trường Điều dưỡng Kỹ thuật Y học",
-        "K.KHCB": "Khoa Khoa học Cơ bản",
-        "K.YHCT": "Khoa Y học Cổ truyền",
-        "K.YTCC": "Khoa Y tế Công cộng",
-        "K.RHM": "Khoa Răng Hàm Mặt"
-    },
-    "Khối Bệnh viện / Phòng khám": {
-        "BV ĐHYD": "Bệnh viện Đại học Y Dược",
-        "PKCK RHM": "Phòng khám Chuyên khoa Răng Hàm Mặt"
-    },
-    "Khối Trung tâm": {
-        "TT.KCCLXN": "Trung tâm Kiểm chuẩn Chất lượng Xét nghiệm",
-        "TT.KHCN UMP": "Trung tâm Khoa học Công nghệ UMP",
-        "TT.GDYH": "Trung tâm Giáo dục Y học",
-        "TT.CNTT": "Trung tâm Công nghệ Thông tin",
-        "TT.YSHPT": "Trung tâm Y Sinh học Phân tử",
-        "TT.ĐTNLYT": "Trung tâm Đào tạo Nhân lực Y tế theo nhu cầu xã hội"
-    },
-    "Đơn vị khác": {
-        "KTX": "Ký túc xá",
-        "TCYH": "Tạp chí Y học",
-        "THƯ VIỆN": "Thư viện"
-    }
+# DANH SÁCH KHỐI VÀ ĐƠN VỊ / BỘ MÔN CHUẨN
+UNITS_BY_GROUP = {
+    "Khối Phòng chức năng": [
+        "P.HCTH", "P.QTGT", "P.TCCB", "P.CTSV", "P.KHCN", 
+        "P.HTQT", "P.KHTC", "P.TTPC", "P.ĐTSĐH", "P.ĐTĐH", "P.ĐBCL"
+    ],
+    "Khối Trường / Khoa": [
+        "TRƯỜNG Y", "T.DƯỢC", "T.ĐD-KTYH", "K.KHCB", "K.YHCT", "K.YTCC", "K.RHM"
+    ],
+    "Khối Bệnh viện / Phòng khám": [
+        "BV ĐHYD", "PKCK RHM"
+    ],
+    "Khối Trung tâm": [
+        "TT.KCCLXN", "TT.KHCN UMP", "TT.GDYH", "TT.CNTT", "TT.YSHPT", "TT.ĐTNLYT"
+    ],
+    "Đơn vị khác": [
+        "TCYH", "THƯ VIỆN", "KTX"
+    ],
+    "Khối Bộ môn": [
+        "BM.Toán", "BM.Lý", "BM.Sinh", "BM.Hóa", "BM.GDTC", "BM.LLCT", "BM.NN"
+    ]
 }
 
+# Tên file tương ứng trên OneDrive cho 7 Bộ môn và 29 Đơn vị
+FILE_NAME_MAP = {
+    "BM.Toán": "BM.Toán.xlsx", "BM.Lý": "BM.Lý.xlsx", "BM.Sinh": "BM.Sinh.xlsx",
+    "BM.Hóa": "BM.Hóa.xlsx", "BM.GDTC": "BM.GDTC.xlsx", "BM.LLCT": "BM.LLCT.xlsx", "BM.NN": "BM.NN.xlsx",
+    "BV ĐHYD": "BV ĐHYD.xlsx", "PKCK RHM": "PKCK RHM.xlsx",
+    "P.HCTH": "P.HCTH.xlsx", "P.QTGT": "P.QTGT.xlsx", "P.TCCB": "P.TCCB.xlsx",
+    "P.CTSV": "P.CTSV.xlsx", "P.KHCN": "P.KHCN.xlsx", "P.HTQT": "P.HTQT.xlsx",
+    "P.KHTC": "P.KHTC.xlsx", "P.TTPC": "P.TTPC.xlsx", "P.ĐTSĐH": "P.ĐTSĐH.xlsx",
+    "P.ĐTĐH": "P.ĐTĐH.xlsx", "P.ĐBCL": "P.ĐBCL.xlsx",
+    "TRƯỜNG Y": "TRƯỜNG Y.xlsx", "T.DƯỢC": "T.DƯỢC.xlsx", "T.ĐD-KTYH": "T.ĐD-KTYH.xlsx",
+    "K.KHCB": "K.KHCB.xlsx", "K.YHCT": "K.YHCT.xlsx", "K.YTCC": "K.YTCC.xlsx", "K.RHM": "K.RHM.xlsx",
+    "TT.KCCLXN": "TT.KCCLXN.xlsx", "TT.KHCN UMP": "TT.KHCN UMP.xlsx", "TT.GDYH": "TT.GDYH.xlsx",
+    "TT.CNTT": "TT.CNTT.xlsx", "TT.YSHPT": "TT.YSHPT.xlsx", "TT.ĐTNLYT": "TT.ĐTNLYT.xlsx",
+    "TCYH": "TCYH.xlsx", "THƯ VIỆN": "THƯ VIỆN.xlsx", "KTX": "KTX.xlsx"
+}
+
+st.markdown('<div class="main-banner-blue">Quản Lý & Tải Dữ Liệu OGSM - Đại học Y Dược TP.HCM</div>', unsafe_allow_html=True)
+
 try:
+    from ogsm_service import OGSMService
     service = OGSMService()
+
+    # 1. Chọn Khối
+    st.markdown('<div class="subsection-header-blue">1. Chọn Khối Đơn Vị / Bộ Môn</div>', unsafe_allow_html=True)
+    selected_group = st.radio(
+        "Chọn Khối:",
+        options=list(UNITS_BY_GROUP.keys()),
+        horizontal=True,
+        label_visibility="collapsed",
+        key="data_group_radio"
+    )
+
+    # 2. Chọn Đơn vị thuộc Khối
+    st.markdown(f'<div class="subsection-header-blue">2. Chọn Đơn Vị / Bộ Môn Thuộc [{selected_group}]</div>', unsafe_allow_html=True)
+    unit_options = UNITS_BY_GROUP[selected_group]
     
-    st.markdown('<div class="section-banner-blue">Cập Nhật Báo Cáo Cho Đơn Vị</div>', unsafe_allow_html=True)
-    
-    col_upload, col_guide = st.columns([1.2, 0.8])
+    selected_unit = st.radio(
+        "Chọn Đơn vị / Bộ môn:",
+        options=unit_options,
+        horizontal=True,
+        label_visibility="collapsed",
+        key="data_unit_radio"
+    )
 
-    with col_upload:
-        st.markdown('<div class="subsection-header-blue">Bước 1: Chọn Khối Đơn Vị Báo Cáo</div>', unsafe_allow_html=True)
-        
-        selected_group = st.segmented_control(
-            "Chọn Khối:",
-            options=list(UNIT_GROUPS.keys()),
-            default="Khối Phòng chức năng",
-            label_visibility="collapsed"
-        )
-        
-        if not selected_group:
-            selected_group = "Khối Phòng chức năng"
-
-        st.markdown(f'<div class="subsection-header-blue">Bước 2: Chọn Đơn vị thuộc [{selected_group}]</div>', unsafe_allow_html=True)
-        
-        units_dict = UNIT_GROUPS[selected_group]
-        unit_options = [f"{k} - {v}" for k, v in units_dict.items()]
-        
-        selected_unit_label = st.selectbox(
-            "Tên Đơn Vị Báo Cáo:",
-            options=unit_options,
-            key=f"selectbox_active_unit_{selected_group}"
-        )
-        
-        selected_unit_code = selected_unit_label.split(" - ")[0]
-
-        st.markdown("---")
-        
-        uploaded_file = st.file_uploader(
-            f"Chọn file Excel báo cáo (.xlsx) cho đơn vị [{selected_unit_label}]:",
-            type=["xlsx"]
-        )
-
-        if st.button("Tải Lên và Cập Nhật Báo Cáo", type="primary"):
-            if not uploaded_file:
-                st.error(f"Vui lòng chọn file Excel (.xlsx) báo cáo cho đơn vị [{selected_unit_label}] trước khi tải lên.")
-            else:
-                with st.spinner(f"Đang lưu báo cáo cho đơn vị {selected_unit_code} lên OneDrive..."):
-                    try:
-                        file_bytes = uploaded_file.read()
-                        df_check = pd.read_excel(io.BytesIO(file_bytes), engine="openpyxl")
-                        
-                        target_filename = f"{selected_unit_code}.xlsx"
-                        success = service.upload_unit_file(target_filename, file_bytes)
-                        
-                        if success:
-                            st.success(f"Đã cập nhật thành công báo cáo cho đơn vị **{selected_unit_label}**.")
-                            st.cache_data.clear()
-                        else:
-                            st.error("Không thể ghi đè file lên OneDrive. Vuint lòng kiểm tra lại cấu hình kết nối.")
-                    except Exception as ex:
-                        st.error(f"Lỗi đọc định dạng file Excel: {ex}")
-
-    with col_guide:
-        st.info("""
-        **Hướng dẫn cập nhật định kỳ:**
-        1. Sử dụng file Excel khung mẫu OGSM 2025–2029 của Nhà trường.
-        2. Cập nhật kết quả thực hiện vào cột **`Tỷ lệ đạt (%)`** (Trạng thái sẽ tự động được tính theo công thức sẵn trong file Excel).
-        3. Chọn đúng **Khối Đơn Vị** và **Tên Đơn Vị**, hệ thống sẽ tự động liên kết đúng 100% tên đơn vị vào mục tải file Excel bên dưới.
-        4. Bấm **Tải Lên và Cập Nhật Báo Cáo** để hoàn tất.
-        """)
+    file_target_name = FILE_NAME_MAP.get(selected_unit, f"{selected_unit}.xlsx")
 
     st.markdown("---")
-    st.markdown('<div class="section-banner-blue">Xem Dữ Liệu Báo Cáo Đã Tải Lên</div>', unsafe_allow_html=True)
 
-    df_master = service.get_full_ogsm_data()
+    col_upload, col_view = st.columns([1, 1])
 
-    if not df_master.empty:
-        available_units = sorted(list(df_master["Unit_Code"].unique()))
-        selected_unit_view = st.selectbox("Chọn đơn vị để xem chi tiết dữ liệu:", ["Tất cả đơn vị"] + available_units)
+    with col_upload:
+        st.markdown(f'<div class="section-banner-blue">Tải Tệp Lên Cho: {selected_unit}</div>', unsafe_allow_html=True)
+        st.write(f"Tệp sẽ được lưu trực tiếp lên OneDrive dưới tên: **`{file_target_name}`**")
 
-        df_display = df_master.copy()
-        if selected_unit_view != "Tất cả đơn vị":
-            df_display = df_display[df_display["Unit_Code"] == selected_unit_view]
-
-        st.dataframe(
-            df_display[[
-                "Unit_Code", "Objective_ID", "Goal_ID", "Measure_ID", 
-                "Measure_Desc", "Target", "Actual", "Status"
-            ]],
-            use_container_width=True,
-            height=400
+        uploaded_file = st.file_uploader(
+            f"Chọn tệp Excel (.xlsx) cho {selected_unit}:",
+            type=["xlsx", "xls"],
+            key="data_file_uploader"
         )
-    else:
-        st.warning("Hiện chưa có dữ liệu đơn vị nào trên hệ thống.")
+
+        if uploaded_file is not None:
+            if st.button("🚀 Cập nhật tệp dữ liệu lên OneDrive", type="primary"):
+                try:
+                    df_up = pd.read_excel(uploaded_file, engine="openpyxl")
+                    success = service.save_unit_data(file_target_name, df_up)
+                    if success:
+                        st.success(f"✅ Đã cập nhật tệp dữ liệu thành công cho **{selected_unit}**!")
+                        st.cache_data.clear()
+                    else:
+                        st.error("❌ Không thể tải tệp lên OneDrive. Vui lòng kiểm tra lại kết nối.")
+                except Exception as ex:
+                    st.error(f"❌ Lỗi xử lý tệp: {ex}")
+
+    with col_view:
+        st.markdown(f'<div class="section-banner-blue">Dữ Liệu Hiện Tại: {selected_unit}</div>', unsafe_allow_html=True)
+        try:
+            df_all = service.get_full_ogsm_data()
+            if not df_all.empty:
+                df_unit_curr = df_all[df_all["Source_File"].astype(str).str.contains(selected_unit, case=False, na=False)]
+                if df_unit_curr.empty:
+                    df_unit_curr = df_all[df_all["Unit_Code"] == selected_unit]
+
+                if not df_unit_curr.empty:
+                    st.dataframe(df_unit_curr, use_container_width=True, height=350)
+                    
+                    # Tải file về máy
+                    buffer = io.BytesIO()
+                    with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+                        df_unit_curr.to_excel(writer, index=False, sheet_name="OGSM")
+                    
+                    st.download_button(
+                        label=f"📥 Tải tệp {selected_unit} (.xlsx) về máy",
+                        data=buffer.getvalue(),
+                        file_name=file_target_name,
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    )
+                else:
+                    st.info(f"Chưa có dữ liệu cho **{selected_unit}** trên hệ thống.")
+            else:
+                st.info("Chưa có dữ liệu nào trên hệ thống.")
+        except Exception as e:
+            st.error(f"Lỗi khi đọc dữ liệu đơn vị: {e}")
 
 except Exception as e:
-    st.error(f"Lỗi nạp trang Quản Lý Dữ Liệu: {e}")
+    st.error(f"Lỗi nạp trang Data Management: {e}")
