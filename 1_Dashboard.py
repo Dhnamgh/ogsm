@@ -1,6 +1,6 @@
 """
 Trang Executive Dashboard - Đại học Y Dược TP.HCM
-Chuẩn hóa 100% tên tệp về Bảng 29 Mã Đơn Vị chính thức (Khắc phục triệt để lỗi khoảng trắng, Unicode Đ/đ).
+Cập nhật bảng ánh xạ chuẩn 29 Đơn vị (BVĐHYD và TT.KHCN).
 """
 
 import sys
@@ -95,7 +95,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# BẢNG TRA CỨU KHÓA SIÊU SẠCH CHO ĐÚNG 29 ĐƠN VỊ CỦA NHÀ TRƯỜNG
+# BẢNG ÁNH XẠ CHUẨN 29 ĐƠN VỊ CỦA NHÀ TRƯỜNG
 CANONICAL_LOOKUP = {
     # 1. Khối Phòng chức năng (11 Đơn vị)
     "PHCTH": ("P.HCTH", "Khối Phòng chức năng"),
@@ -113,7 +113,7 @@ CANONICAL_LOOKUP = {
     # 2. Khối Trường / Khoa (7 Đơn vị)
     "TRUONGY": ("TRƯỜNG Y", "Khối Trường / Khoa"),
     "TDUOC": ("T.DƯỢC", "Khối Trường / Khoa"),
-    "TDDKTYH": ("T.ĐĐ-KTYH", "Khối Trường / Khoa"),
+    "TDDKTYH": ("T.ĐD-KTYH", "Khối Trường / Khoa"),
     "KKHCB": ("K.KHCB", "Khối Trường / Khoa"),
     "KYHCT": ("K.YHCT", "Khối Trường / Khoa"),
     "KYTCC": ("K.YTCC", "Khối Trường / Khoa"),
@@ -121,7 +121,8 @@ CANONICAL_LOOKUP = {
 
     # 3. Khối Trung tâm (6 Đơn vị)
     "TTKCCLXN": ("TT.KCCLXN", "Khối Trung tâm"),
-    "TTKHCNUMP": ("TT.KHCN UMP", "Khối Trung tâm"),
+    "TTKHCN": ("TT.KHCN", "Khối Trung tâm"),      # Đã cập nhật cho TT.KHCN
+    "TTKHCNUMP": ("TT.KHCN", "Khối Trung tâm"),   # Biến thể phụ
     "TTGDYH": ("TT.GDYH", "Khối Trung tâm"),
     "TTCNTT": ("TT.CNTT", "Khối Trung tâm"),
     "TTYSHPT": ("TT.YSHPT", "Khối Trung tâm"),
@@ -129,7 +130,7 @@ CANONICAL_LOOKUP = {
 
     # 4. Khối Bệnh viện / Phòng khám (2 Đơn vị)
     "PKCKRHM": ("PKCK RHM", "Khối Bệnh viện / Phòng khám"),
-    "BVDHYD": ("BV ĐHYD", "Khối Bệnh viện / Phòng khám"),
+    "BVDHYD": ("BVĐHYD", "Khối Bệnh viện / Phòng khám"), # Đã cập nhật cho BVĐHYD
 
     # 5. Khối Đơn vị khác (3 Đơn vị)
     "TCYH": ("TCYH", "Đơn vị khác"),
@@ -139,27 +140,23 @@ CANONICAL_LOOKUP = {
 
 def parse_unit_info(raw_filename: str):
     """
-    Rút gọn tên tệp bất kỳ về chuỗi ký tự Anh và trả về (Mã_Đơn_Vị_Chuẩn, Khối)
+    Chuẩn hóa tên file thành Key tinh gọn A-Z0-9 và tra cứu chính xác Đơn vị + Khối
     """
     if not raw_filename:
         return ("Chưa rõ", "Đơn vị khác")
     
-    # 1. Bỏ đuôi file .xlsx
     s = re.sub(r'\.xlsx$', '', str(raw_filename).strip(), flags=re.IGNORECASE)
     
-    # 2. Xóa toàn bộ dấu tiếng Việt & ép chữ Đ -> D
+    # Xóa dấu tiếng Việt & ép chữ Đ -> D
     clean = unicodedata.normalize('NFD', s)
     clean = ''.join(c for c in clean if unicodedata.category(c) != 'Mn')
     clean = clean.replace('đ', 'd').replace('Đ', 'D').upper()
     
-    # 3. Chỉ giữ lại chữ cái A-Z và số 0-9
     key = re.sub(r'[^A-Z0-9]', '', clean)
     
-    # Tra cứu chính xác key
     if key in CANONICAL_LOOKUP:
         return CANONICAL_LOOKUP[key]
         
-    # Tra cứu tìm từ khóa phụ
     for k, val in CANONICAL_LOOKUP.items():
         if k in key or key in k:
             return val
@@ -185,7 +182,6 @@ try:
     df_all = service.get_full_ogsm_data()
 
     if not df_all.empty:
-        # Gán Mã chuẩn & Khối chính xác 100%
         parsed_data = df_all["Unit_Code"].apply(parse_unit_info)
         df_all["Unit_Code"] = [p[0] for p in parsed_data]
         df_all["Unit_Group"] = [p[1] for p in parsed_data]
