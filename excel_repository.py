@@ -1,9 +1,12 @@
 """
 OpenPyXL and Pandas Excel Repository matching official 29 UMP Units.
+Khắc phục trượt header và bổ sung đầy đủ nhận diện cho P.HCTH và BV ĐHYD.
 """
 
 import io
 import os
+import re
+import unicodedata
 import pandas as pd
 from typing import Optional, List
 from graph_client import MicrosoftGraphClient
@@ -27,19 +30,53 @@ class ExcelOneDriveRepository(BaseOGSMRepository):
 
     def _clean_unit_code(self, file_name: str) -> str:
         """Chuẩn hóa tên file thành đúng Mã đơn vị trong bảng 29 đơn vị."""
-        base_name = os.path.splitext(file_name)[0].strip()
+        file_name_nfc = unicodedata.normalize('NFC', str(file_name))
+        base_name = os.path.splitext(file_name_nfc)[0].strip()
+        base_clean = re.sub(r'\s+', ' ', base_name)
         
-        # Bảng ánh xạ linh hoạt tên file cũ sang mã đơn vị chuẩn
+        # Bảng ánh xạ linh hoạt mở rộng tất cả biến thể tên file
         mapping = {
-            "P.QTGT": "P.QTGT", "P.QT": "P.QTGT",
-            "PK.RHM": "PKCK RHM", "PKCK RHM": "PKCK RHM",
-            "T.DƯỢC": "T.DƯỢC", "T.DUOC": "T.DƯỢC", "K.DUOC": "T.DƯỢC",
-            "TT.KCXN": "TT.KCCLXN", "TT.KCCLXN": "TT.KCCLXN",
-            "THƯ VIỆN": "THƯ VIỆN", "TV": "THƯ VIỆN",
-            "BV.ĐHYD": "BV ĐHYD", "BV ĐHYD": "BV ĐHYD"
+            # Khối Phòng chức năng
+            "P.HCTH": "P.HCTH", "P. HCTH": "P.HCTH", "PHCTH": "P.HCTH", "P_HCTH": "P.HCTH",
+            "P.QTGT": "P.QTGT", "P. QTGT": "P.QTGT", "P.QT": "P.QTGT", "PQTGT": "P.QTGT",
+            "P.TCCB": "P.TCCB", "P. TCCB": "P.TCCB", "PTCCB": "P.TCCB",
+            "P.CTSV": "P.CTSV", "P. CTSV": "P.CTSV", "PCTSV": "P.CTSV",
+            "P.KHCN": "P.KHCN", "P. KHCN": "P.KHCN", "PKHCN": "P.KHCN",
+            "P.HTQT": "P.HTQT", "P. HTQT": "P.HTQT", "PHTQT": "P.HTQT",
+            "P.KHTC": "P.KHTC", "P. KHTC": "P.KHTC", "PKHTC": "P.KHTC",
+            "P.TTPC": "P.TTPC", "P. TTPC": "P.TTPC", "PTTPC": "P.TTPC",
+            "P.ĐTSĐH": "P.ĐTSĐH", "P. ĐTSĐH": "P.ĐTSĐH", "P.DTSDH": "P.ĐTSĐH", "PDTSDH": "P.ĐTSĐH",
+            "P.ĐTĐH": "P.ĐTĐH", "P. ĐTĐH": "P.ĐTĐH", "P.DTDH": "P.ĐTĐH", "PDTDH": "P.ĐTĐH",
+            "P.ĐBCL": "P.ĐBCL", "P. ĐBCL": "P.ĐBCL", "P.DBCL": "P.ĐBCL", "PDBCL": "P.ĐBCL",
+
+            # Khối Trường / Khoa
+            "TRƯỜNG Y": "TRƯỜNG Y", "TRUONG Y": "TRƯỜNG Y", "TRƯỜNGY": "TRƯỜNG Y",
+            "T.DƯỢC": "T.DƯỢC", "T. DƯỢC": "T.DƯỢC", "T.DUOC": "T.DƯỢC", "K.DUOC": "T.DƯỢC",
+            "T.ĐĐ-KTYH": "T.ĐĐ-KTYH", "T.ĐD-KTYH": "T.ĐĐ-KTYH", "T.DD-KTYH": "T.ĐĐ-KTYH", "T. ĐĐ-KTYH": "T.ĐĐ-KTYH",
+            "K.KHCB": "K.KHCB", "K. KHCB": "K.KHCB", "KKHCB": "K.KHCB",
+            "K.YHCT": "K.YHCT", "K. YHCT": "K.YHCT", "KYHCT": "K.YHCT",
+            "K.YTCC": "K.YTCC", "K. YTCC": "K.YTCC", "KYTCC": "K.YTCC",
+            "K.RHM": "K.RHM", "K. RHM": "K.RHM", "KRHM": "K.RHM",
+
+            # Khối Trung tâm
+            "TT.KCCLXN": "TT.KCCLXN", "TT. KCCLXN": "TT.KCCLXN", "TT.KCXN": "TT.KCCLXN", "TTKCCLXN": "TT.KCCLXN",
+            "TT.KHCN UMP": "TT.KHCN UMP", "TT. KHCN UMP": "TT.KHCN UMP", "TT.KHCNUMP": "TT.KHCN UMP", "TT.KHCN": "TT.KHCN UMP", "TTKHCNUMP": "TT.KHCN UMP",
+            "TT.GDYH": "TT.GDYH", "TT. GDYH": "TT.GDYH", "TTGDYH": "TT.GDYH",
+            "TT.CNTT": "TT.CNTT", "TT. CNTT": "TT.CNTT", "TTCNTT": "TT.CNTT",
+            "TT.YSHPT": "TT.YSHPT", "TT. YSHPT": "TT.YSHPT", "TTYSHPT": "TT.YSHPT",
+            "TT.ĐTNLYT": "TT.ĐTNLYT", "TT. ĐTNLYT": "TT.ĐTNLYT", "TT.DTNLYT": "TT.ĐTNLYT", "TTDTNLYT": "TT.ĐTNLYT",
+
+            # Khối Bệnh viện / Phòng khám
+            "PKCK RHM": "PKCK RHM", "PKCK.RHM": "PKCK RHM", "PK.RHM": "PKCK RHM", "PKCKRHM": "PKCK RHM",
+            "BV ĐHYD": "BV ĐHYD", "BV.ĐHYD": "BV ĐHYD", "BV. ĐHYD": "BV ĐHYD", "BVDHYD": "BV ĐHYD", "BV_ĐHYD": "BV ĐHYD", "BV DHYD": "BV ĐHYD", "BV.DHYD": "BV ĐHYD",
+
+            # Đơn vị khác
+            "TCYH": "TCYH", "TẠP CHÍ Y HỌC": "TCYH",
+            "THƯ VIỆN": "THƯ VIỆN", "THU VIEN": "THƯ VIỆN", "TV": "THƯ VIỆN",
+            "KTX": "KTX", "KÝ TÚC XÁ": "KTX"
         }
         
-        return mapping.get(base_name, base_name)
+        return mapping.get(base_clean, base_clean)
 
     def _get_objective_id(self, obj_title: str) -> str:
         obj_lower = str(obj_title).lower()
@@ -70,36 +107,46 @@ class ExcelOneDriveRepository(BaseOGSMRepository):
         return "OTHER_GOAL"
 
     def _transform_custom_excel(self, df: pd.DataFrame, unit_code: str) -> pd.DataFrame:
-        df.columns = [str(c).strip() for c in df.columns]
+        df.columns = [unicodedata.normalize('NFC', str(c)).strip() for c in df.columns]
+
+        # Tự động tìm tên cột linh hoạt nếu viết hơi khác
+        def get_col_val(row_data, keywords, default=""):
+            for col in df.columns:
+                if any(kw.lower() in col.lower() for kw in keywords):
+                    val = row_data.get(col)
+                    if pd.notna(val):
+                        return val
+            return default
 
         rows = []
         for idx, row in df.iterrows():
-            measure_desc = str(row.get("Measure (KPI)", "")).strip() if pd.notna(row.get("Measure (KPI)")) else ""
+            measure_desc = str(get_col_val(row, ["Measure (KPI)", "Measure", "KPI", "Chỉ số"], "")).strip()
             if not measure_desc or measure_desc == "nan":
                 continue
 
-            obj_title = str(row.get("Objects", "")).strip() if pd.notna(row.get("Objects")) else "Mục tiêu UMP"
+            obj_title = str(get_col_val(row, ["Objects", "Mục tiêu chiến lược"], "Mục tiêu UMP")).strip()
             obj_id = self._get_objective_id(obj_title)
 
-            goal_ump = str(row.get("Goals UMP", "")).strip() if pd.notna(row.get("Goals UMP")) else ""
+            goal_ump = str(get_col_val(row, ["Goals UMP", "Goals", "Mục tiêu cụ thể"], "")).strip()
             goal_desc = goal_ump if goal_ump and goal_ump != "nan" else obj_title
             strat_code = self._get_goal_id_by_text(goal_desc)
 
-            target_yr = row.get("Năm đích", 2029)
+            target_yr = get_col_val(row, ["Năm đích", "Year"], 2029)
 
-            stt = str(row.get("STT", idx + 1)).strip()
-            status = str(row.get("Trạng thái", "In Progress")).strip() if pd.notna(row.get("Trạng thái")) else "In Progress"
+            stt = str(get_col_val(row, ["STT"], idx + 1)).strip()
+            status = str(get_col_val(row, ["Trạng thái", "Status"], "In Progress")).strip()
             
-            actual_val = row.get("Tỷ lệ đạt (%)", 0.0)
+            actual_val = get_col_val(row, ["Tỷ lệ đạt (%)", "Tỷ lệ đạt", "Actual"], 0.0)
             try:
                 actual_val = float(str(actual_val).replace("%", "").strip())
             except Exception:
                 actual_val = 0.0
 
             target_val = 100.0
-            if "2026" in row and pd.notna(row["2026"]):
+            val_2026 = get_col_val(row, ["2026"], None)
+            if val_2026 is not None:
                 try:
-                    target_val = float(str(row["2026"]).replace("%", "").strip())
+                    target_val = float(str(val_2026).replace("%", "").strip())
                 except Exception:
                     target_val = 100.0
 
@@ -139,16 +186,21 @@ class ExcelOneDriveRepository(BaseOGSMRepository):
                 buffer = io.BytesIO(file_bytes)
                 df_raw = pd.read_excel(buffer, engine="openpyxl")
 
-                header_row = 0
-                for r_idx in range(min(5, len(df_raw))):
-                    row_vals = [str(v) for v in df_raw.iloc[r_idx].values]
-                    if any("Objects" in v or "Measure" in v or "Goals" in v for v in row_vals):
-                        header_row = r_idx + 1
-                        break
+                # Kiểm tra tiêu đề cột chuẩn
+                cols_str = " ".join([str(c) for c in df_raw.columns]).lower()
+                has_valid_header = any(k in cols_str for k in ["objects", "measure", "goals", "kpi"])
 
-                if header_row > 0:
-                    buffer.seek(0)
-                    df_raw = pd.read_excel(buffer, engine="openpyxl", header=header_row)
+                if not has_valid_header:
+                    header_row = 0
+                    for r_idx in range(min(5, len(df_raw))):
+                        row_vals = [str(v).lower() for v in df_raw.iloc[r_idx].values]
+                        if any("objects" in v or "measure" in v or "goals" in v for v in row_vals):
+                            header_row = r_idx + 1
+                            break
+
+                    if header_row > 0:
+                        buffer.seek(0)
+                        df_raw = pd.read_excel(buffer, engine="openpyxl", header=header_row)
 
                 df_transformed = self._transform_custom_excel(df_raw, unit_code)
 
