@@ -1,6 +1,6 @@
 """
 Trang Data Management - Quản lý & Tải dữ liệu OGSM
-Khắc phục lỗi gọi tên hàm lưu file save_unit_dataframe.
+Xử lý đẩy trực tiếp byte dữ liệu tệp Excel lên OneDrive qua Microsoft Graph API.
 """
 
 import sys
@@ -117,7 +117,6 @@ UNITS_BY_GROUP = {
     ]
 }
 
-# Tên file tương ứng trên OneDrive cho 7 Bộ môn và 29 Đơn vị
 FILE_NAME_MAP = {
     "BM.Toán": "BM.Toán.xlsx", "BM.Lý": "BM.Lý.xlsx", "BM.Sinh": "BM.Sinh.xlsx",
     "BM.Hóa": "BM.Hóa.xlsx", "BM.GDTC": "BM.GDTC.xlsx", "BM.LLCT": "BM.LLCT.xlsx", "BM.NN": "BM.NN.xlsx",
@@ -137,6 +136,8 @@ st.markdown('<div class="main-banner-blue">Quản Lý & Tải Dữ Liệu OGSM -
 
 try:
     from ogsm_service import OGSMService
+    from excel_repository import ExcelOneDriveRepository
+
     service = OGSMService()
 
     # 1. Chọn Khối
@@ -180,22 +181,22 @@ try:
         if uploaded_file is not None:
             if st.button("🚀 Cập nhật tệp dữ liệu lên OneDrive", type="primary"):
                 try:
+                    # Kiểm tra đọc file dữ liệu
                     df_up = pd.read_excel(uploaded_file, engine="openpyxl")
                     
-                    # Gọi hàm lưu file đa luồng tương thích
-                    success = False
-                    if hasattr(service, "save_unit_dataframe"):
-                        success = service.save_unit_dataframe(file_target_name, df_up)
-                    elif hasattr(service, "repository") and hasattr(service.repository, "save_unit_dataframe"):
-                        success = service.repository.save_unit_dataframe(file_target_name, df_up)
-                    elif hasattr(service, "save_unit_data"):
-                        success = service.save_unit_data(file_target_name, df_up)
+                    # Khởi tạo Repository lấy kết nối Graph Client
+                    repo = getattr(service, "repository", None) or getattr(service, "repo", None) or ExcelOneDriveRepository()
+                    
+                    # Lấy byte nguyên bản của tệp
+                    file_bytes = uploaded_file.getvalue()
+                    data_folder_id = repo.config.onedrive.data_folder_id
+                    
+                    # Đẩy tệp trực tiếp lên OneDrive qua Graph API
+                    repo.graph_client.upload_file_by_folder_id(data_folder_id, file_target_name, file_bytes)
+                    
+                    st.success(f"✅ Đã cập nhật tệp **`{file_target_name}`** thành công lên OneDrive!")
+                    st.cache_data.clear()
 
-                    if success:
-                        st.success(f"✅ Đã cập nhật tệp dữ liệu thành công cho **{selected_unit}**!")
-                        st.cache_data.clear()
-                    else:
-                        st.error("❌ Không thể tải tệp lên OneDrive. Vui lòng kiểm tra lại kết nối.")
                 except Exception as ex:
                     st.error(f"❌ Lỗi xử lý tệp: {ex}")
 
@@ -211,7 +212,6 @@ try:
                 if not df_unit_curr.empty:
                     st.dataframe(df_unit_curr, use_container_width=True, height=350)
                     
-                    # Tải file về máy
                     buffer = io.BytesIO()
                     with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
                         df_unit_curr.to_excel(writer, index=False, sheet_name="OGSM")
