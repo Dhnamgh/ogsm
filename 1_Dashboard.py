@@ -1,6 +1,6 @@
 """
 Trang Executive Dashboard - Đại học Y Dược TP.HCM
-Nhận diện siêu rộng bắt sạch 100% biến thể tên file của P.HCTH và BV ĐHYD.
+Hỗ trợ Khối Bộ môn thử nghiệm & 29 Đơn vị chính thức.
 """
 
 import sys
@@ -97,7 +97,6 @@ st.markdown("""
 
 
 def get_ascii_key(text: str) -> str:
-    """Rút gọn chuỗi thành ký tự A-Z0-9 thuần không dấu"""
     if not text:
         return ""
     s = unicodedata.normalize('NFD', str(text))
@@ -107,20 +106,30 @@ def get_ascii_key(text: str) -> str:
 
 
 def classify_unit_row(row):
-    """Phân loại chính xác 100% dựa trên ASCII Key"""
+    """Phân loại chính xác các đơn vị & 7 bộ môn thử nghiệm vào Khối tương ứng"""
     src = str(row.get("Source_File", ""))
     unit = str(row.get("Unit_Code", ""))
     key = get_ascii_key(src) or get_ascii_key(unit)
 
-    # 1. Bệnh viện & Phòng khám
+    # 1. Khối Bộ môn thử nghiệm
+    if key.startswith("BM") or "BOMON" in key:
+        if "TOAN" in key: return ("BM.Toán", "Khối Bộ môn")
+        if "LY" in key and "LLCT" not in key: return ("BM.Lý", "Khối Bộ môn")
+        if "SINH" in key: return ("BM.Sinh", "Khối Bộ môn")
+        if "HOA" in key: return ("BM.Hóa", "Khối Bộ môn")
+        if "GDTC" in key: return ("BM.GDTC", "Khối Bộ môn")
+        if "LLCT" in key: return ("BM.LLCT", "Khối Bộ môn")
+        if "NN" in key or "NGOAINGU" in key: return ("BM.NN", "Khối Bộ môn")
+        return (unit if unit else src, "Khối Bộ môn")
+
+    # 2. Bệnh viện & Phòng khám
     if "BVDHYD" in key or "BENHVIEN" in key or ("BV" in key and "DHYD" in key):
         return ("BV ĐHYD", "Khối Bệnh viện / Phòng khám")
     if "PKCK" in key or "PKRHM" in key:
         return ("PKCK RHM", "Khối Bệnh viện / Phòng khám")
 
-    # 2. Khối Phòng chức năng
-    if "HCTH" in key or "HANHCHINH" in key:
-        return ("P.HCTH", "Khối Phòng chức năng")
+    # 3. Khối Phòng chức năng
+    if "HCTH" in key or "HANHCHINH" in key: return ("P.HCTH", "Khối Phòng chức năng")
     if "QTGT" in key: return ("P.QTGT", "Khối Phòng chức năng")
     if "TCCB" in key: return ("P.TCCB", "Khối Phòng chức năng")
     if "CTSV" in key: return ("P.CTSV", "Khối Phòng chức năng")
@@ -132,7 +141,7 @@ def classify_unit_row(row):
     if "DBCL" in key: return ("P.ĐBCL", "Khối Phòng chức năng")
     if "PKHCN" in key or (key.startswith("P") and "KHCN" in key): return ("P.KHCN", "Khối Phòng chức năng")
 
-    # 3. Khối Trung tâm
+    # 4. Khối Trung tâm
     if "KCCLXN" in key: return ("TT.KCCLXN", "Khối Trung tâm")
     if "TTKHCN" in key or "KHCNUMP" in key: return ("TT.KHCN UMP", "Khối Trung tâm")
     if "GDYH" in key and "TT" in key: return ("TT.GDYH", "Khối Trung tâm")
@@ -140,16 +149,16 @@ def classify_unit_row(row):
     if "YSHPT" in key: return ("TT.YSHPT", "Khối Trung tâm")
     if "DTNLYT" in key: return ("TT.ĐTNLYT", "Khối Trung tâm")
 
-    # 4. Khối Trường / Khoa
+    # 5. Khối Trường / Khoa
     if "TRUONGY" in key or key == "Y": return ("TRƯỜNG Y", "Khối Trường / Khoa")
     if "DUOC" in key: return ("T.DƯỢC", "Khối Trường / Khoa")
-    if "DDKT" in key or "DDKTYH" in key: return ("T.ĐD-KTYH", "Khối Trường / Khoa")
+    if "DDKT" in key or "DDKTYH" in key: return ("T.ĐĐ-KTYH", "Khối Trường / Khoa")
     if "KHCB" in key: return ("K.KHCB", "Khối Trường / Khoa")
     if "YHCT" in key: return ("K.YHCT", "Khối Trường / Khoa")
     if "YTCC" in key: return ("K.YTCC", "Khối Trường / Khoa")
     if "KRHM" in key or (key.startswith("K") and "RHM" in key): return ("K.RHM", "Khối Trường / Khoa")
 
-    # 5. Đơn vị khác
+    # 6. Đơn vị khác
     if "TCYH" in key: return ("TCYH", "Đơn vị khác")
     if "THUVIEN" in key: return ("THƯ VIỆN", "Đơn vị khác")
     if "KTX" in key: return ("KTX", "Đơn vị khác")
@@ -180,16 +189,17 @@ try:
         df_all["Unit_Code"] = [m[0] for m in mapped_data]
         df_all["Unit_Group"] = [m[1] for m in mapped_data]
 
-        # Hiển thị số lượng file thực tế đọc được
         loaded_units = df_all["Unit_Code"].unique()
-        st.caption(f"Đã nạp thành công **{len(loaded_units)} / 29 Đơn vị** vào hệ thống.")
+        st.caption(f"Đã nạp thành công **{len(loaded_units)} Đơn vị / Bộ môn** vào hệ thống.")
 
+        # DANH SÁCH KHỐI BAO GỒM KHỐI BỘ MÔN
         GROUPS_LIST = [
             "Tất cả đơn vị",
             "Khối Phòng chức năng",
             "Khối Trường / Khoa",
             "Khối Bệnh viện / Phòng khám",
             "Khối Trung tâm",
+            "Khối Bộ môn",
             "Đơn vị khác"
         ]
 
