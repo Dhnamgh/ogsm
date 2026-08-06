@@ -1,6 +1,6 @@
 """
 OpenPyXL and Pandas Excel Repository matching official 29 UMP Units + Test Departments (Bộ môn).
-Giữ nguyên 100% logic đọc file gốc đã chạy tốt.
+Đọc và ghi dữ liệu OGSM trực tiếp qua Microsoft Graph API.
 """
 
 import io
@@ -29,7 +29,7 @@ class ExcelOneDriveRepository(BaseOGSMRepository):
         self.config = load_config()
 
     def _clean_unit_code(self, file_name: str) -> str:
-        """Chuẩn hóa tên file thành đúng Mã đơn vị / Bộ môn."""
+        """Chuẩn hóa tên file thành đúng Mã đơn vị / Bộ môn chuẩn."""
         file_name_nfc = unicodedata.normalize('NFC', str(file_name))
         base_name = os.path.splitext(file_name_nfc)[0].strip()
         base_clean = re.sub(r'\s+', ' ', base_name)
@@ -51,8 +51,9 @@ class ExcelOneDriveRepository(BaseOGSMRepository):
         if upper_clean.startswith("BM.") or upper_clean.startswith("BM_"):
             return base_clean
 
-        # Bảng ánh xạ 29 Đơn vị chính thức (Giữ nguyên từ code cũ)
+        # Bảng ánh xạ linh hoạt 29 Đơn vị chính thức
         mapping = {
+            # Khối Phòng chức năng
             "P.HCTH": "P.HCTH", "P. HCTH": "P.HCTH", "PHCTH": "P.HCTH", "P_HCTH": "P.HCTH",
             "P.QTGT": "P.QTGT", "P. QTGT": "P.QTGT", "P.QT": "P.QTGT", "PQTGT": "P.QTGT",
             "P.TCCB": "P.TCCB", "P. TCCB": "P.TCCB", "PTCCB": "P.TCCB",
@@ -65,6 +66,7 @@ class ExcelOneDriveRepository(BaseOGSMRepository):
             "P.ĐTĐH": "P.ĐTĐH", "P. ĐTĐH": "P.ĐTĐH", "P.DTDH": "P.ĐTĐH", "PDTDH": "P.ĐTĐH",
             "P.ĐBCL": "P.ĐBCL", "P. ĐBCL": "P.ĐBCL", "P.DBCL": "P.ĐBCL", "PDBCL": "P.ĐBCL",
 
+            # Khối Trường / Khoa
             "TRƯỜNG Y": "TRƯỜNG Y", "TRUONG Y": "TRƯỜNG Y", "TRƯỜNGY": "TRƯỜNG Y",
             "T.DƯỢC": "T.DƯỢC", "T. DƯỢC": "T.DƯỢC", "T.DUOC": "T.DƯỢC", "K.DUOC": "T.DƯỢC",
             "T.ĐĐ-KTYH": "T.ĐĐ-KTYH", "T.ĐD-KTYH": "T.ĐĐ-KTYH", "T.DD-KTYH": "T.ĐĐ-KTYH", "T. ĐĐ-KTYH": "T.ĐĐ-KTYH",
@@ -73,6 +75,7 @@ class ExcelOneDriveRepository(BaseOGSMRepository):
             "K.YTCC": "K.YTCC", "K. YTCC": "K.YTCC", "KYTCC": "K.YTCC",
             "K.RHM": "K.RHM", "K. RHM": "K.RHM", "KRHM": "K.RHM",
 
+            # Khối Trung tâm
             "TT.KCCLXN": "TT.KCCLXN", "TT. KCCLXN": "TT.KCCLXN", "TT.KCXN": "TT.KCCLXN", "TTKCCLXN": "TT.KCCLXN",
             "TT.KHCN UMP": "TT.KHCN UMP", "TT. KHCN UMP": "TT.KHCN UMP", "TT.KHCNUMP": "TT.KHCN UMP", "TT.KHCN": "TT.KHCN UMP", "TTKHCNUMP": "TT.KHCN UMP",
             "TT.GDYH": "TT.GDYH", "TT. GDYH": "TT.GDYH", "TTGDYH": "TT.GDYH",
@@ -80,9 +83,11 @@ class ExcelOneDriveRepository(BaseOGSMRepository):
             "TT.YSHPT": "TT.YSHPT", "TT. YSHPT": "TT.YSHPT", "TTYSHPT": "TT.YSHPT",
             "TT.ĐTNLYT": "TT.ĐTNLYT", "TT. ĐTNLYT": "TT.ĐTNLYT", "TT.DTNLYT": "TT.ĐTNLYT", "TTDTNLYT": "TT.ĐTNLYT",
 
+            # Khối Bệnh viện / Phòng khám
             "PKCK RHM": "PKCK RHM", "PKCK.RHM": "PKCK RHM", "PK.RHM": "PKCK RHM", "PKCKRHM": "PKCK RHM",
             "BV ĐHYD": "BV ĐHYD", "BV.ĐHYD": "BV ĐHYD", "BV. ĐHYD": "BV ĐHYD", "BVDHYD": "BV ĐHYD", "BV_ĐHYD": "BV ĐHYD", "BV DHYD": "BV ĐHYD", "BV.DHYD": "BV ĐHYD",
 
+            # Đơn vị khác
             "TCYH": "TCYH", "TẠP CHÍ Y HỌC": "TCYH",
             "THƯ VIỆN": "THƯ VIỆN", "THU VIEN": "THƯ VIỆN", "TV": "THƯ VIỆN",
             "KTX": "KTX", "KÝ TÚC XÁ": "KTX"
@@ -146,7 +151,7 @@ class ExcelOneDriveRepository(BaseOGSMRepository):
 
             stt = str(get_col_val(row, ["STT"], idx + 1)).strip()
             
-            # Chuẩn hóa trạng thái Tiếng Việt đồng nhất
+            # Chuẩn hóa trạng thái Tiếng Việt
             status_raw = str(get_col_val(row, ["Trạng thái", "Status"], "Đang thực hiện")).strip()
             st_lower = status_raw.lower()
             if "progress" in st_lower or "đang" in st_lower:
@@ -210,7 +215,6 @@ class ExcelOneDriveRepository(BaseOGSMRepository):
                 buffer = io.BytesIO(file_bytes)
                 df_raw = pd.read_excel(buffer, engine="openpyxl")
 
-                # GIỮ NGUYÊN HOÀN TOÀN LOGIC XỬ LÝ HEADER NGUYÊN BẢN CỦA FILE 2
                 cols_str = " ".join([str(c) for c in df_raw.columns]).lower()
                 has_valid_header = any(k in cols_str for k in ["objects", "measure", "goals", "kpi"])
 
@@ -246,7 +250,7 @@ class ExcelOneDriveRepository(BaseOGSMRepository):
         clean_df = df_unit.drop(columns=["Unit_Code", "Source_File", "Target_Year"], errors="ignore")
 
         buffer = io.BytesIO()
-        with pd.ExcelWriter(buffer, engine="xlsxwriter") as writer:
+        with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
             clean_df.to_excel(writer, index=False, sheet_name="OGSM")
 
         buffer.seek(0)
