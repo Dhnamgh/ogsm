@@ -1,6 +1,6 @@
 """
 Trang Executive Dashboard - Đại học Y Dược TP.HCM
-Giữ nguyên giao diện File 1 gốc + Bổ sung Khối Bộ môn tách biệt.
+Cập nhật vị trí "Khối Bộ môn" nằm ở sau cùng trong danh sách chọn Khối.
 """
 
 import sys
@@ -123,13 +123,13 @@ def classify_unit_row(row):
         if "NN" in key or "NGOAINGU" in key: return ("BM.NN", "Khối Bộ môn")
         return (unit if unit else src, "Khối Bộ môn")
 
-    # 2. Bệnh viện & Phòng khám (Giữ nguyên File 1)
+    # 2. Bệnh viện & Phòng khám
     if "BVDHYD" in key or "BENHVIEN" in key or ("BV" in key and "DHYD" in key):
         return ("BV ĐHYD", "Khối Bệnh viện / Phòng khám")
     if "PKCK" in key or "PKRHM" in key:
         return ("PKCK RHM", "Khối Bệnh viện / Phòng khám")
 
-    # 3. Khối Phòng chức năng (Giữ nguyên File 1)
+    # 3. Khối Phòng chức năng
     if "HCTH" in key or "HANHCHINH" in key:
         return ("P.HCTH", "Khối Phòng chức năng")
     if "QTGT" in key: return ("P.QTGT", "Khối Phòng chức năng")
@@ -143,7 +143,7 @@ def classify_unit_row(row):
     if "DBCL" in key: return ("P.ĐBCL", "Khối Phòng chức năng")
     if "PKHCN" in key or (key.startswith("P") and "KHCN" in key): return ("P.KHCN", "Khối Phòng chức năng")
 
-    # 4. Khối Trung tâm (Giữ nguyên File 1)
+    # 4. Khối Trung tâm
     if "KCCLXN" in key: return ("TT.KCCLXN", "Khối Trung tâm")
     if "TTKHCN" in key or "KHCNUMP" in key: return ("TT.KHCN UMP", "Khối Trung tâm")
     if "GDYH" in key and "TT" in key: return ("TT.GDYH", "Khối Trung tâm")
@@ -151,16 +151,16 @@ def classify_unit_row(row):
     if "YSHPT" in key: return ("TT.YSHPT", "Khối Trung tâm")
     if "DTNLYT" in key: return ("TT.ĐTNLYT", "Khối Trung tâm")
 
-    # 5. Khối Trường / Khoa (Giữ nguyên File 1)
+    # 5. Khối Trường / Khoa
     if "TRUONGY" in key or key == "Y": return ("TRƯỜNG Y", "Khối Trường / Khoa")
     if "DUOC" in key: return ("T.DƯỢC", "Khối Trường / Khoa")
-    if "DDKT" in key or "DDKTYH" in key: return ("T.ĐD-KTYH", "Khối Trường / Khoa")
+    if "DDKT" in key or "DDKTYH" in key: return ("T.ĐĐ-KTYH", "Khối Trường / Khoa")
     if "KHCB" in key: return ("K.KHCB", "Khối Trường / Khoa")
     if "YHCT" in key: return ("K.YHCT", "Khối Trường / Khoa")
     if "YTCC" in key: return ("K.YTCC", "Khối Trường / Khoa")
     if "KRHM" in key or (key.startswith("K") and "RHM" in key): return ("K.RHM", "Khối Trường / Khoa")
 
-    # 6. Đơn vị khác (Giữ nguyên File 1)
+    # 6. Đơn vị khác
     if "TCYH" in key: return ("TCYH", "Đơn vị khác")
     if "THUVIEN" in key: return ("THƯ VIỆN", "Đơn vị khác")
     if "KTX" in key: return ("KTX", "Đơn vị khác")
@@ -199,14 +199,15 @@ try:
         else:
             st.caption(f"Đã nạp thành công **{len(loaded_main)} / 29 Đơn vị** vào hệ thống.")
 
+        # DANH SÁCH KHỐI HÀNG NGANG (ĐÃ ĐẶT "Khối Bộ môn" Ở CUỐI)
         GROUPS_LIST = [
             "Tất cả đơn vị",
             "Khối Phòng chức năng",
             "Khối Trường / Khoa",
             "Khối Bệnh viện / Phòng khám",
             "Khối Trung tâm",
-            "Khối Bộ môn",
-            "Đơn vị khác"
+            "Đơn vị khác",
+            "Khối Bộ môn"
         ]
 
         st.markdown('<div class="subsection-header-blue">Chọn Khối Đơn Vị Báo Cáo</div>', unsafe_allow_html=True)
@@ -242,7 +243,7 @@ try:
                 st.info(f"Chưa có tệp dữ liệu nào thuộc {selected_group}.")
                 selected_unit = f"GROUP:{selected_group}"
 
-        # LỌC DỮ LIỆU
+        # LỌC DỮ LIỆU BÁO CÁO
         df_filtered = df_all.copy()
         if selected_unit == "Tất Cả Đơn Vị (Toàn Trường)":
             # "Tất cả đơn vị" CHỈ bao gồm 29 Đơn vị chính thức (loại trừ Khối Bộ môn)
