@@ -1,6 +1,6 @@
 """
 Trang Executive Dashboard - Đại học Y Dược TP.HCM
-Chuẩn hóa Unicode (NFC/NFD) và đối soát đa chiều đảm bảo nạp đủ 100% 29 đơn vị.
+Nhận diện siêu rộng bắt sạch 100% biến thể tên file của P.HCTH và BV ĐHYD.
 """
 
 import sys
@@ -96,89 +96,65 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
-def clean_text(text: str) -> str:
-    """Đưa chuỗi về dạng chuẩn NFC và loại bỏ khoảng trắng dư thừa"""
+def get_ascii_key(text: str) -> str:
+    """Rút gọn chuỗi thành ký tự A-Z0-9 thuần không dấu"""
     if not text:
         return ""
-    # Chuẩn hóa về NFC
-    s = unicodedata.normalize('NFC', str(text))
-    s = re.sub(r'\.xlsx$', '', s, flags=re.IGNORECASE).strip()
-    return s
-
-
-def get_ascii_key(text: str) -> str:
-    """Chuyển chuỗi về dạng ký tự ASCII không dấu thuần túy để so sánh chính xác 100%"""
     s = unicodedata.normalize('NFD', str(text))
     s = ''.join(c for c in s if unicodedata.category(c) != 'Mn')
     s = s.replace('đ', 'd').replace('Đ', 'D').upper()
     return re.sub(r'[^A-Z0-9]', '', s)
 
 
-# BẢNG DỮ LIỆU CHUẨN 29 ĐƠN VỊ CỦA TRƯỜNG
-MASTER_UNITS_DATA = {
-    # Khối Phòng chức năng (11 Đơn vị)
-    "PHCTH": ("P.HCTH", "Khối Phòng chức năng"),
-    "PQTGT": ("P.QTGT", "Khối Phòng chức năng"),
-    "PTCCB": ("P.TCCB", "Khối Phòng chức năng"),
-    "PCTSV": ("P.CTSV", "Khối Phòng chức năng"),
-    "PKHCN": ("P.KHCN", "Khối Phòng chức năng"),
-    "PHTQT": ("P.HTQT", "Khối Phòng chức năng"),
-    "PKHTC": ("P.KHTC", "Khối Phòng chức năng"),
-    "PTTPC": ("P.TTPC", "Khối Phòng chức năng"),
-    "PDTSDH": ("P.ĐTSĐH", "Khối Phòng chức năng"),
-    "PDTDH": ("P.ĐTĐH", "Khối Phòng chức năng"),
-    "PDBCL": ("P.ĐBCL", "Khối Phòng chức năng"),
+def classify_unit_row(row):
+    """Phân loại chính xác 100% dựa trên ASCII Key"""
+    src = str(row.get("Source_File", ""))
+    unit = str(row.get("Unit_Code", ""))
+    key = get_ascii_key(src) or get_ascii_key(unit)
 
-    # Khối Trường / Khoa (7 Đơn vị)
-    "TRUONGY": ("TRƯỜNG Y", "Khối Trường / Khoa"),
-    "TDUOC": ("T.DƯỢC", "Khối Trường / Khoa"),
-    "TDDKTYH": ("T.ĐD-KTYH", "Khối Trường / Khoa"),
-    "KKHCB": ("K.KHCB", "Khối Trường / Khoa"),
-    "KYHCT": ("K.YHCT", "Khối Trường / Khoa"),
-    "KYTCC": ("K.YTCC", "Khối Trường / Khoa"),
-    "KRHM": ("K.RHM", "Khối Trường / Khoa"),
+    # 1. Bệnh viện & Phòng khám
+    if "BVDHYD" in key or "BENHVIEN" in key or ("BV" in key and "DHYD" in key):
+        return ("BV ĐHYD", "Khối Bệnh viện / Phòng khám")
+    if "PKCK" in key or "PKRHM" in key:
+        return ("PKCK RHM", "Khối Bệnh viện / Phòng khám")
 
-    # Khối Trung tâm (6 Đơn vị)
-    "TTKCCLXN": ("TT.KCCLXN", "Khối Trung tâm"),
-    "TTKHCNUMP": ("TT.KHCN UMP", "Khối Trung tâm"),
-    "TTKHCN": ("TT.KHCN UMP", "Khối Trung tâm"),
-    "TTGDYH": ("TT.GDYH", "Khối Trung tâm"),
-    "TTCNTT": ("TT.CNTT", "Khối Trung tâm"),
-    "TTYSHPT": ("TT.YSHPT", "Khối Trung tâm"),
-    "TTDTNLYT": ("TT.ĐTNLYT", "Khối Trung tâm"),
+    # 2. Khối Phòng chức năng
+    if "HCTH" in key or "HANHCHINH" in key:
+        return ("P.HCTH", "Khối Phòng chức năng")
+    if "QTGT" in key: return ("P.QTGT", "Khối Phòng chức năng")
+    if "TCCB" in key: return ("P.TCCB", "Khối Phòng chức năng")
+    if "CTSV" in key: return ("P.CTSV", "Khối Phòng chức năng")
+    if "HTQT" in key: return ("P.HTQT", "Khối Phòng chức năng")
+    if "KHTC" in key: return ("P.KHTC", "Khối Phòng chức năng")
+    if "TTPC" in key: return ("P.TTPC", "Khối Phòng chức năng")
+    if "DTSDH" in key: return ("P.ĐTSĐH", "Khối Phòng chức năng")
+    if "DTDH" in key: return ("P.ĐTĐH", "Khối Phòng chức năng")
+    if "DBCL" in key: return ("P.ĐBCL", "Khối Phòng chức năng")
+    if "PKHCN" in key or (key.startswith("P") and "KHCN" in key): return ("P.KHCN", "Khối Phòng chức năng")
 
-    # Khối Bệnh viện / Phòng khám (2 Đơn vị)
-    "PKCKRHM": ("PKCK RHM", "Khối Bệnh viện / Phòng khám"),
-    "BVDHYD": ("BV ĐHYD", "Khối Bệnh viện / Phòng khám"),
+    # 3. Khối Trung tâm
+    if "KCCLXN" in key: return ("TT.KCCLXN", "Khối Trung tâm")
+    if "TTKHCN" in key or "KHCNUMP" in key: return ("TT.KHCN UMP", "Khối Trung tâm")
+    if "GDYH" in key and "TT" in key: return ("TT.GDYH", "Khối Trung tâm")
+    if "CNTT" in key: return ("TT.CNTT", "Khối Trung tâm")
+    if "YSHPT" in key: return ("TT.YSHPT", "Khối Trung tâm")
+    if "DTNLYT" in key: return ("TT.ĐTNLYT", "Khối Trung tâm")
 
-    # Đơn vị khác (3 Đơn vị)
-    "TCYH": ("TCYH", "Đơn vị khác"),
-    "THUVIEN": ("THƯ VIỆN", "Đơn vị khác"),
-    "KTX": ("KTX", "Đơn vị khác"),
-}
+    # 4. Khối Trường / Khoa
+    if "TRUONGY" in key or key == "Y": return ("TRƯỜNG Y", "Khối Trường / Khoa")
+    if "DUOC" in key: return ("T.DƯỢC", "Khối Trường / Khoa")
+    if "DDKT" in key or "DDKTYH" in key: return ("T.ĐD-KTYH", "Khối Trường / Khoa")
+    if "KHCB" in key: return ("K.KHCB", "Khối Trường / Khoa")
+    if "YHCT" in key: return ("K.YHCT", "Khối Trường / Khoa")
+    if "YTCC" in key: return ("K.YTCC", "Khối Trường / Khoa")
+    if "KRHM" in key or (key.startswith("K") and "RHM" in key): return ("K.RHM", "Khối Trường / Khoa")
 
+    # 5. Đơn vị khác
+    if "TCYH" in key: return ("TCYH", "Đơn vị khác")
+    if "THUVIEN" in key: return ("THƯ VIỆN", "Đơn vị khác")
+    if "KTX" in key: return ("KTX", "Đơn vị khác")
 
-def map_unit_row(row):
-    """
-    Xác định Tên Đơn Vị Chuẩn & Khối dựa trên ASCII Key của Source_File hoặc Unit_Code.
-    """
-    src_file = str(row.get("Source_File", ""))
-    unit_code = str(row.get("Unit_Code", ""))
-
-    key_src = get_ascii_key(src_file)
-    key_unit = get_ascii_key(unit_code)
-
-    # 1. Tra cứu chính xác theo Key ASCII
-    for key in [key_src, key_unit]:
-        if key in MASTER_UNITS_DATA:
-            return MASTER_UNITS_DATA[key]
-
-    # 2. Tìm tương đối nếu có tiền tố / hậu tố
-    for target_key, info in MASTER_UNITS_DATA.items():
-        if target_key in key_src or target_key in key_unit or key_src in target_key:
-            return info
-
-    return (clean_text(unit_code or src_file), "Đơn vị khác")
+    return (src or unit, "Đơn vị khác")
 
 
 try:
@@ -200,9 +176,13 @@ try:
 
     if not df_all.empty:
         # Ánh xạ chuẩn hóa thông tin Đơn vị và Khối
-        mapped_data = df_all.apply(map_unit_row, axis=1)
+        mapped_data = df_all.apply(classify_unit_row, axis=1)
         df_all["Unit_Code"] = [m[0] for m in mapped_data]
         df_all["Unit_Group"] = [m[1] for m in mapped_data]
+
+        # Hiển thị số lượng file thực tế đọc được
+        loaded_units = df_all["Unit_Code"].unique()
+        st.caption(f"Đã nạp thành công **{len(loaded_units)} / 29 Đơn vị** vào hệ thống.")
 
         GROUPS_LIST = [
             "Tất cả đơn vị",
@@ -227,7 +207,6 @@ try:
 
         if selected_group == "Tất cả đơn vị":
             selected_unit = "Tất Cả Đơn Vị (Toàn Trường)"
-            st.caption("Đại học Y Dược TP. Hồ Chí Minh - Báo Cáo Tổng Hợp Toàn Trường (29 Đơn Vị)")
         else:
             df_group_available = df_all[df_all["Unit_Group"] == selected_group]
             available_units_real = sorted(list(df_group_available["Unit_Code"].unique()))
