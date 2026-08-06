@@ -1,6 +1,6 @@
 """
 Trang Executive Dashboard - Đại học Y Dược TP.HCM
-Chuẩn hóa 100% tên mã 29 đơn vị (bao gồm biến thể ĐD/ĐĐ, khoảng trắng và dấu tiếng Việt).
+Tự động chuẩn hóa tên tệp về đúng 29 Mã Đơn Vị chính thức (kh khắc phục triệt để lỗi gạch dưới/khoảng trắng).
 """
 
 import sys
@@ -11,6 +11,7 @@ if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
 import re
+import unicodedata
 import datetime
 import streamlit as st
 
@@ -94,9 +95,8 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# BẢNG ÁNH XẠ CHUẨN BAO GỒM TẤT CẢ BIẾN THỂ KÝ TỰ
-UNIT_MASTER_MAP = {
-    # 1. Khối Phòng chức năng (11 Đơn vị)
+# BẢNG ÁNH XẠ CHUẨN 29 ĐƠN VỊ & KHỐI TRỰC THUỘC
+UNIT_GROUPS_MAP = {
     "P.HCTH": "Khối Phòng chức năng",
     "P.QTGT": "Khối Phòng chức năng",
     "P.TCCB": "Khối Phòng chức năng",
@@ -106,76 +106,118 @@ UNIT_MASTER_MAP = {
     "P.KHTC": "Khối Phòng chức năng",
     "P.TTPC": "Khối Phòng chức năng",
     "P.ĐTSĐH": "Khối Phòng chức năng",
-    "P.DTSDH": "Khối Phòng chức năng",
     "P.ĐTĐH": "Khối Phòng chức năng",
-    "P.DTĐH": "Khối Phòng chức năng",
     "P.ĐBCL": "Khối Phòng chức năng",
-    "P.DBCL": "Khối Phòng chức năng",
 
-    # 2. Khối Trường / Khoa (7 Đơn vị)
     "TRƯỜNG Y": "Khối Trường / Khoa",
-    "TRUONG Y": "Khối Trường / Khoa",
-    "TRƯỜNGY": "Khối Trường / Khoa",
     "T.DƯỢC": "Khối Trường / Khoa",
-    "T.DUOC": "Khối Trường / Khoa",
-    "T.ĐĐ-KTYH": "Khối Trường / Khoa",
-    "T.ĐD-KTYH": "Khối Trường / Khoa", # Sửa biến thể ĐD
-    "T.DD-KTYH": "Khối Trường / Khoa",
+    "T.ĐD-KTYH": "Khối Trường / Khoa",
     "K.KHCB": "Khối Trường / Khoa",
     "K.YHCT": "Khối Trường / Khoa",
     "K.YTCC": "Khối Trường / Khoa",
     "K.RHM": "Khối Trường / Khoa",
 
-    # 3. Khối Trung tâm (6 Đơn vị)
     "TT.KCCLXN": "Khối Trung tâm",
-    "TT.KHCN UMP": "Khối Trung tâm", # Sửa biến thể có khoảng trắng
-    "TT.KHCNUMP": "Khối Trung tâm",
+    "TT.KHCN UMP": "Khối Trung tâm",
     "TT.GDYH": "Khối Trung tâm",
     "TT.CNTT": "Khối Trung tâm",
     "TT.YSHPT": "Khối Trung tâm",
     "TT.ĐTNLYT": "Khối Trung tâm",
-    "TT.DTNLYT": "Khối Trung tâm",
 
-    # 4. Khối Bệnh viện / Phòng khám (2 Đơn vị)
     "PKCK RHM": "Khối Bệnh viện / Phòng khám",
-    "PKCKRHM": "Khối Bệnh viện / Phòng khám",
-    "BV ĐHYD": "Khối Bệnh viện / Phòng khám", # Sửa biến thể có khoảng trắng
-    "BVDHYD": "Khối Bệnh viện / Phòng khám",
-    "BV.DHYD": "Khối Bệnh viện / Phòng khám",
+    "BV ĐHYD": "Khối Bệnh viện / Phòng khám",
 
-    # 5. Đơn vị khác (3 Đơn vị)
     "TCYH": "Đơn vị khác",
     "THƯ VIỆN": "Đơn vị khác",
-    "THU VIEN": "Đơn vị khác",
     "KTX": "Đơn vị khác"
 }
 
-def get_unit_group_exact(unit_code: str) -> str:
-    """Tra cứu chính xác 100% Khối dựa trên Mã đơn vị / Tên file"""
-    u_raw = str(unit_code).replace(".xlsx", "").replace(".XLSX", "").strip()
-    u_clean = u_raw.upper()
+def standardize_unit_name(raw_name: str) -> str:
+    """
+    Chuyển đổi mọi biến thể tên file (dấu gạch dưới, khoảng trắng, thiếu chấm...)
+    về đúng 1 trong 29 tên Mã đơn vị chuẩn chính thức.
+    """
+    if not raw_name:
+        return "Đơn vị khác"
     
-    # 1. Khớp chính xác hoàn toàn
-    if u_clean in UNIT_MASTER_MAP:
-        return UNIT_MASTER_MAP[u_clean]
+    s = str(raw_name).replace(".xlsx", "").replace(".XLSX", "").strip()
+    
+    if s in UNIT_GROUPS_MAP:
+        return s
+        
+    clean = unicodedata.normalize('NFD', s)
+    clean = re.sub(r'[\u0300-\u036f]', '', clean).replace('đ', 'd').replace('Đ', 'D').upper()
+    clean_no_sym = re.sub(r'[^A-Z0-9]', '', clean)
 
-    # 2. Khớp sau khi xóa toàn bộ khoảng trắng (chống lỗi gõ dư space)
-    u_nospace = u_clean.replace(" ", "")
-    for key, group in UNIT_MASTER_MAP.items():
-        if key.replace(" ", "").upper() == u_nospace:
-            return group
+    # 1. Bệnh viện & Phòng khám
+    if "BVDHYD" in clean_no_sym or ("BV" in clean_no_sym and "DHYD" in clean_no_sym):
+        return "BV ĐHYD"
+    if "PKCK" in clean_no_sym or "PKRHM" in clean_no_sym:
+        return "PKCK RHM"
 
-    # 3. Phân loại theo tiền tố mẫu
-    if u_clean.startswith("P."):
-        return "Khối Phòng chức năng"
-    if u_clean.startswith("K.") or u_clean.startswith("T.") or "TRƯỜNG" in u_clean or "TRUONG" in u_clean:
-        return "Khối Trường / Khoa"
-    if u_clean.startswith("TT.") or "TRUNG TAM" in u_clean:
-        return "Khối Trung tâm"
-    if "BV" in u_clean or "PKCK" in u_clean:
-        return "Khối Bệnh viện / Phòng khám"
+    # 2. Trung tâm
+    if "TTKHCN" in clean_no_sym or ("TT" in clean_no_sym and "KHCN" in clean_no_sym):
+        return "TT.KHCN UMP"
+    if "KCCLXN" in clean_no_sym:
+        return "TT.KCCLXN"
+    if "GDYH" in clean_no_sym and "TT" in clean_no_sym:
+        return "TT.GDYH"
+    if "CNTT" in clean_no_sym:
+        return "TT.CNTT"
+    if "YSHPT" in clean_no_sym:
+        return "TT.YSHPT"
+    if "DTNLYT" in clean_no_sym:
+        return "TT.ĐTNLYT"
 
-    return "Đơn vị khác"
+    # 3. Phòng chức năng
+    if "KHTC" in clean_no_sym:
+        return "P.KHTC"
+    if "HCTH" in clean_no_sym:
+        return "P.HCTH"
+    if "QTGT" in clean_no_sym:
+        return "P.QTGT"
+    if "TCCB" in clean_no_sym:
+        return "P.TCCB"
+    if "CTSV" in clean_no_sym:
+        return "P.CTSV"
+    if "HTQT" in clean_no_sym:
+        return "P.HTQT"
+    if "TTPC" in clean_no_sym:
+        return "P.TTPC"
+    if "DTSDH" in clean_no_sym:
+        return "P.ĐTSĐH"
+    if "DTDH" in clean_no_sym:
+        return "P.ĐTĐH"
+    if "DBCL" in clean_no_sym:
+        return "P.ĐBCL"
+    if "PKHCN" in clean_no_sym or (clean_no_sym.startswith("P") and "KHCN" in clean_no_sym):
+        return "P.KHCN"
+
+    # 4. Trường / Khoa
+    if "TRUONGY" in clean_no_sym or clean_no_sym == "Y":
+        return "TRƯỜNG Y"
+    if "DUOC" in clean_no_sym:
+        return "T.DƯỢC"
+    if "DDKT" in clean_no_sym or "DDKTYH" in clean_no_sym:
+        return "T.ĐD-KTYH"
+    if "KHCB" in clean_no_sym:
+        return "K.KHCB"
+    if "YHCT" in clean_no_sym:
+        return "K.YHCT"
+    if "YTCC" in clean_no_sym:
+        return "K.YTCC"
+    if "KRHM" in clean_no_sym or (clean_no_sym.startswith("K") and "RHM" in clean_no_sym):
+        return "K.RHM"
+
+    # 5. Đơn vị khác
+    if "TCYH" in clean_no_sym:
+        return "TCYH"
+    if "THUVIEN" in clean_no_sym:
+        return "THƯ VIỆN"
+    if "KTX" in clean_no_sym:
+        return "KTX"
+
+    return s
 
 
 try:
@@ -196,7 +238,9 @@ try:
     df_all = service.get_full_ogsm_data()
 
     if not df_all.empty:
-        df_all["Unit_Group"] = df_all["Unit_Code"].apply(get_unit_group_exact)
+        # Chuẩn hóa tên đơn vị và gán Khối trực thuộc
+        df_all["Unit_Code"] = df_all["Unit_Code"].apply(standardize_unit_name)
+        df_all["Unit_Group"] = df_all["Unit_Code"].apply(lambda u: UNIT_GROUPS_MAP.get(u, "Đơn vị khác"))
 
         GROUPS_LIST = [
             "Tất cả đơn vị",
@@ -241,7 +285,7 @@ try:
                 st.info(f"Chưa có tệp dữ liệu nào thuộc {selected_group}.")
                 selected_unit = f"GROUP:{selected_group}"
 
-        # Lọc dữ liệu
+        # Lọc dữ liệu chính xác
         df_filtered = df_all.copy()
         if selected_unit == "Tất Cả Đơn Vị (Toàn Trường)":
             pass
